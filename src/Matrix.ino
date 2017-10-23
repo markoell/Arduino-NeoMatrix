@@ -15,8 +15,9 @@
 #endif
 
 #define PIN 6
-#define NEO_MATRIX_HIGHT 16
-#define NEO_MATRIX_WIDTH 28
+
+const int NEO_MATRIX_HIGHT = 16;
+const int NEO_MATRIX_WIDTH = 28;
 
 // MATRIX DECLARATION:
 // Parameter 1 = width of EACH NEOPIXEL MATRIX (not total display)
@@ -69,7 +70,8 @@ const uint16_t colors[] = {
 
 int maxCounter = 50; //Dauer / Wiederholungen Krisseln
 //int[] jahre = 2017, 1539,...
-int arr[16][28] = {
+
+int arr[NEO_MATRIX_HIGHT][NEO_MATRIX_WIDTH] = {
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 {0,0,255,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -86,10 +88,11 @@ int arr[16][28] = {
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
 
+int (*blocks[2])[28] = { arr };  //TODO blocks[2] vergrößern
 
+int test = 0;  //TODO nur zum Test
 
 void setup() {
-  
   matrix.begin();
   matrix.setTextWrap(false);
   matrix.setBrightness(40);
@@ -98,31 +101,26 @@ void setup() {
   matrix.show();
 }
 
-int test = 0;
-
 void loop() {
 
-   if(test == 1)  //SpÃ¤ter Taster abfragen
+  if(test == 1)  //Später Taster abfragen
     return;
-  drawPixel();
+    
+    //TODO unterscheidung Schalter Gruppen (1 = Rebläuse; 2 = Altstadtjodler; ...)
+  drawPixel(blocks[0]);  //TODO eine Schleife über alle Elemente auf Tastendruck (counter)
 
   test = 1; //Kann weg, sobald Taster
 }
 
-//int[] matrixArray = Hausaufgabe MK
-
-
-
-
-  void drawPixel(){
-    for (int i = 0; i < NEO_MATRIX_WIDTH; i++){
-      for (int j = 0; j < NEO_MATRIX_HIGHT; j++){
-        matrix.drawPixel(i,j,matrix.Color(arr[j][i],0,0));
+void drawPixel(int array[16][28]){
+  for (int i = 0; i < NEO_MATRIX_WIDTH; i++){
+    for (int j = 0; j < NEO_MATRIX_HIGHT; j++){
+      matrix.drawPixel(i,j,matrix.Color(arr[j][i],0,0));
     }
   }
   matrix.show();
- }
+}
 
-  void clr(){
-   matrix.fillScreen(0);
+void clr(){
+  matrix.fillScreen(0);
 }
