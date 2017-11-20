@@ -16,7 +16,7 @@
 
 
 //Debug 
-bool debugMode = false
+bool debugMode = false;
 const byte ledPin = 13;
 
 // Interrupts
