@@ -7,6 +7,9 @@
   Get latest source code: 'git clone https://markoell@bitbucket.org/markoell/arduino-neomatrix.git'
 */
 
+#include <SPI.h>
+#include <SD.h>
+
 //Matrix Dimensions
 
 #define PIN      6
@@ -16,49 +19,101 @@
 
 
 //Debug 
-bool debugMode = false;
-const byte ledPin = 13;
+bool debugMode = true;  //TODO disable Debug when Jumper can read
+const byte outputPin = 6;
 
 // Interrupts
 const byte interruptExecutePin = 2;
 volatile boolean shouldRun = false;
-const byte interruptResetPin = 1;
-volatile boolean isReset = false;
+const byte interruptResetPin = 3;
+volatile boolean isResetSet = false;
 
+//SD Module
+// change this to match your SD shield or module;
+// Arduino Ethernet shield: pin 4
+// Adafruit SD shields and modules: pin 10
+// Sparkfun SD shield: pin 8
+// MKRZero SD: SDCARD_SS_PIN
+const int chipSelect = 10;
 
 void setup() {
+  
+  if(debugMode){
+    Serial.begin(9600); // opens serial port, sets data rate to 9600 bps
+    while (!Serial) {
+      ; // wait for serial port to connect. Needed for native USB port only
+    }
+    Serial.println("DebugMode Set");
+  }
+
   //Interrupts
+  printDebugMessages("Init Interrupt Pins");
+  pinMode(interruptExecutePin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(interruptExecutePin), startAction, RISING);
+  //TODO Reset Button
+  pinMode(interruptResetPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(interruptResetPin), resetAction, RISING);
+
+  //Init SD card reader
+  if (!SD.begin(chipSelect)) {
+    printDebugMessages("initialization failed!");
+    return;
+  }
+  printDebugMessages("initialization done.");
   
   //TODO Check Debug State
   //For Debug Purpose Only
-  pinMode(ledPin, OUTPUT);
+  pinMode(outputPin, OUTPUT);
   
-  //Interrupts
-  pinMode(interruptExecutePin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(interruptExecutePin), startAction, RISING);
-  //TODO Reset Button
+  
   
   //TODO Init Matrix
 }
 
 void loop() {
+
+  static byte executionCount;
+  byte executionSwitch = 1; //TODO provide value from rotary switch
+  
   //TODO reset when needed
+  if(isResetSet){
+    printDebugMessages("Reset is Pressed");
+    executionCount = 0;
+    isResetSet = false;
+    return;
+  }
   if(shouldRun == false) return;
+  executionCount++;
+  
+  String executionCountAsString = String(executionCount);
   
   //TODO Check rotary switch
-  
+
   //TODO Check execution count
+  printDebugMessages(executionCountAsString);
+
   //TODO reset when needed
   
   //TODO read SDCard file A<rotarySwitch>_<executionCount>.txt
+  String fileName = String("A" + String(executionSwitch) + "_" + executionCountAsString + ".txt");
+  printDebugMessages("Open File " + fileName);
+
+  File myFile;
+  myFile = SD.open(fileName);
+
+  while (myFile.available()) {
+    Serial.write(myFile.read());
+  }
   
   //TODO reset when needed
   //TODO blink action if needed
   
   //TODO reset if needed
   //TODO write Pattern
-   
-  showDebugPinAction();
+  if(debugMode){
+    showDebugPinAction(outputPin);  
+  }
+  myFile.close();
   shouldRun = false;
   
 }
@@ -68,10 +123,19 @@ void startAction() {
   shouldRun = true;
 }
 
-//TODO Reset Button
+void resetAction(){
+  isResetSet = true;
+}
 
+void printDebugMessages(String msg){
+  if(debugMode){
+    Serial.println(msg);
+  }
+}
 
-void showDebugPinAction(){
+void showDebugPinAction(int ledPin){
+  pinMode(ledPin, OUTPUT);
+  
   digitalWrite(ledPin, HIGH);
   delay(500);                  // waits for a second
   digitalWrite(ledPin, LOW);        // sets the digital pin 13 off
