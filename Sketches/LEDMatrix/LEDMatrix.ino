@@ -17,7 +17,6 @@
 #define NEO_MATRIX_HIGHT 16
 #define NEO_MATRIX_WIDTH 28
 
-
 //Debug 
 bool debugMode = true;  //TODO disable Debug when Jumper can read
 const byte outputPin = 6;
@@ -27,6 +26,10 @@ const byte interruptExecutePin = 2;
 volatile boolean shouldRun = false;
 const byte interruptResetPin = 3;
 volatile boolean isResetSet = false;
+
+//Global
+volatile boolean sdCardFailed;
+
 
 //SD Module
 // change this to match your SD shield or module;
@@ -57,6 +60,7 @@ void setup() {
   //Init SD card reader
   if (!SD.begin(chipSelect)) {
     printDebugMessages("initialization failed!");
+    sdCardFailed = true;
     return;
   }
   printDebugMessages("initialization done.");
@@ -71,6 +75,10 @@ void setup() {
 }
 
 void loop() {
+
+  if (sdCardFailed) {
+    errorPin(outputPin);
+  }
 
   static byte executionCount;
   byte executionSwitch = 1; //TODO provide value from rotary switch
@@ -95,14 +103,15 @@ void loop() {
   //TODO reset when needed
   
   //TODO read SDCard file A<rotarySwitch>_<executionCount>.txt
-  String fileName = String("A" + String(executionSwitch) + "_" + executionCountAsString + ".txt");
+  String fileName = String("A" + String(executionSwitch) + "_" + executionCountAsString);
   printDebugMessages("Open File " + fileName);
 
   File myFile;
   myFile = SD.open(fileName);
 
   while (myFile.available()) {
-    Serial.write(myFile.read());
+    //Serial.print(String("+" + myFile.read()));
+    HandleSDCardInput(myFile.read());
   }
   
   //TODO reset when needed
@@ -127,15 +136,62 @@ void resetAction(){
   isResetSet = true;
 }
 
-void printDebugMessages(String msg){
-  if(debugMode){
+#pragma region SDCard
+
+boolean HandleSDCardInput(int input) {
+
+  Serial.print(input);
+  Serial.write(input);
+  static char buffer[4];
+  static byte position;
+  static boolean isCmd = true;
+  static boolean isComment = false;
+
+  char t = (char)input;
+  switch (t) {
+    case ':':
+      isCmd = false;
+      position = 0;
+      break;
+    case '#':
+      isComment = true;
+      break;
+    case '|': break;
+    case '\r': 
+    case '\n': 
+      isCmd = true;
+      isComment = false;
+      break;
+    case ' ': break;
+    default: 
+      if (!isComment) {
+        buffer[position] = t;
+        position++;
+      }
+      return false;
+  }
+
+  /*if (position >= 3) {
+    position = 0;
+  }*/
+  
+  return true;
+}
+
+#pragma endregion
+
+
+#pragma region DebugMethods
+
+void printDebugMessages(String msg) {
+  if (debugMode) {
     Serial.println(msg);
   }
 }
 
-void showDebugPinAction(int ledPin){
+void showDebugPinAction(int ledPin) {
   pinMode(ledPin, OUTPUT);
-  
+
   digitalWrite(ledPin, HIGH);
   delay(500);                  // waits for a second
   digitalWrite(ledPin, LOW);        // sets the digital pin 13 off
@@ -145,3 +201,16 @@ void showDebugPinAction(int ledPin){
   digitalWrite(ledPin, LOW);        // sets the digital pin 13 off
   delay(500);
 }
+
+void errorPin(int ledPin) {
+  pinMode(ledPin, OUTPUT);
+  while (true) {
+    digitalWrite(ledPin, HIGH);
+    delay(250);
+    digitalWrite(ledPin, LOW);
+    delay(250);
+  }
+}
+
+#pragma endregion
+
