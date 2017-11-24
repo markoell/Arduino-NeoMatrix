@@ -10,34 +10,41 @@
 #include <SPI.h>
 #include <SD.h>
 
+//Pin Configuration
+#define SDCARD_CS_PIN 10
+#define BUTTON_EXEC_PIN 2
+#define BUTTON_RESET_PIN 3
+
+
 //Matrix Dimensions
 
-#define PIN      6
+#define MATRIX_DATA_PIN	6
 #define N_LEDS 448
 #define NEO_MATRIX_HIGHT 16
 #define NEO_MATRIX_WIDTH 28
 
+Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT, PIN,
+  NEO_MATRIX_BOTTOM + NEO_MATRIX_RIGHT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,
+  NEO_GRB + NEO_KHZ800);
+
+//LED Colors
+const uint16_t colors[16];
+
 //Debug 
 bool debugMode = true;  //TODO disable Debug when Jumper can read
-const byte outputPin = 6;
+const byte outputPin = MATRIX_DATA_PIN;
 
 // Interrupts
-const byte interruptExecutePin = 2;
+const byte interruptExecutePin = BUTTON_EXEC_PIN;
 volatile boolean shouldRun = false;
-const byte interruptResetPin = 3;
+const byte interruptResetPin = BUTTON_RESET_PIN;
 volatile boolean isResetSet = false;
 
 //Global
 volatile boolean sdCardFailed;
 
-
 //SD Module
-// change this to match your SD shield or module;
-// Arduino Ethernet shield: pin 4
-// Adafruit SD shields and modules: pin 10
-// Sparkfun SD shield: pin 8
-// MKRZero SD: SDCARD_SS_PIN
-const int chipSelect = 10;
+const int chipSelect = SDCARD_CS_PIN;
 
 void setup() {
   
@@ -48,7 +55,14 @@ void setup() {
     }
     Serial.println("DebugMode Set");
   }
-
+  else{
+	for (byte i=0; i<3; i++){
+		for(byte j=0; j<5;j++){
+			colors[(i*5+j)] = GetColor(i, j);		
+		}
+	}
+  }
+  
   //Interrupts
   printDebugMessages("Init Interrupt Pins");
   pinMode(interruptExecutePin, INPUT);
@@ -126,6 +140,20 @@ void loop() {
   shouldRun = false;
   
 }
+
+
+uint16_t GetColor(byte i, byte y){
+	switch (i){
+	case 0: 
+		return matrix.Color(y * 50, 0, 0);
+		case 1: 
+		return matrix.Color(0, y * 50, 0);
+		case 2: 
+		return matrix.Color(0, 0 , y * 50);
+		default:
+	}
+}
+
 
 // Interrupts
 void startAction() {
