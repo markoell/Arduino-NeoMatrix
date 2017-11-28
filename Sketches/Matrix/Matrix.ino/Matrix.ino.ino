@@ -78,7 +78,7 @@ int test = 0;  //TODO nur zum Test
 
 void setup() {
   matrix.begin();
-  matrix.setTextWrap(false);
+  //matrix.setTextWrap(false);
   matrix.setBrightness(40);
   matrix.setTextColor(colors[0]);
   matrix.fillScreen(0);

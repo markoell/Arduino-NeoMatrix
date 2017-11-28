@@ -24,7 +24,7 @@
 #define NEO_MATRIX_HIGHT 16
 #define NEO_MATRIX_WIDTH 28
  
-//Adafruit_NeoPixel strip = Adafruit_NeoPixel(N_LEDS, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(N_LEDS, PIN, NEO_GRB + NEO_KHZ800);
 
 
 // MATRIX DECLARATION:
@@ -55,10 +55,10 @@
 // 800 KHz (v2) pixels that expect GRB color data.
 
 
-Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix (NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT, PIN, NEO_MATRIX_BOTTOM + NEO_MATRIX_RIGHT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,NEO_GRB + NEO_KHZ800);
+//Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix (NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT, PIN, NEO_MATRIX_BOTTOM + NEO_MATRIX_RIGHT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,NEO_GRB + NEO_KHZ800);
 
-const uint16_t colors[] = {
-  matrix.Color(255, 0, 0), matrix.Color(0, 255, 0), matrix.Color(0, 0, 255) };
+//const uint16_t colors[] = {
+//  matrix.Color(255, 0, 0), matrix.Color(0, 255, 0), matrix.Color(0, 0, 255) };
 
 
 int maxCounter = 50; //Dauer / Wiederholungen Krisseln
@@ -66,16 +66,16 @@ int maxCounter = 50; //Dauer / Wiederholungen Krisseln
 //int[] jahre = 2017, 1539,...
 
 void setup() {
-  //strip.begin();
+  strip.begin();
 
-  matrix.begin();
-  matrix.setTextWrap(false);
-  matrix.setBrightness(40);
-  matrix.setTextColor(matrix.Color(255,0,0));
+  //matrix.begin();
+  //matrix.setTextWrap(false);
+  //matrix.setBrightness(40);
+  //matrix.setTextColor(matrix.Color(255,0,0));
 }
  int test = 0;
 
- int x    = matrix.width();
+// int x    = matrix.width();
  int pass = 0;
 
 void loop() {
@@ -85,14 +85,15 @@ void loop() {
  //if button of
   //return
 
-//  for(int i = 0 ; i < maxCounter; i++){
-//    printRandom();
-//    delay(50);
-//  }
+  
+  for(int i = 0 ; i < maxCounter; i++){
+    printRandom();
+    delay(50);
+  }
 
 // Schreibe Zahl aus Array
-  printJear();
-  test = 1;
+  //printJear();
+  //test = 1;
   
   //delay(50);
 }
@@ -102,19 +103,19 @@ static int randomBrightnessValue(){
 }
 
 void printRandom(){
-  //for (int i=0; i < strip.numPixels(); i++){
-    //strip.setPixelColor(i, strip.Color(randomBrightnessValue(),0,0));
-  //}
-  //strip.show();
+  for (int i=0; i < strip.numPixels(); i++){
+    strip.setPixelColor(i, strip.Color(randomBrightnessValue(),0,0));
+  }
+  strip.show();
 }
 
-void printJear(){
-  matrix.fillScreen(0);
-  matrix.setCursor(x, 0);
-  matrix.print(F("Howdy"));
-  matrix.show();
-  delay(100);
-}
+//void printJear(){
+//  matrix.fillScreen(0);
+//  matrix.setCursor(x, 0);
+//  matrix.print(F("Howdy"));
+//  matrix.show();
+//  delay(100);
+//}
 
 void clr(){
  //for (int i=0; i < strip.numPixels(); i++){
