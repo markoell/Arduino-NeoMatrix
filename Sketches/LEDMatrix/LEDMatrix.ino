@@ -7,6 +7,12 @@
   Get latest source code: 'git clone https://markoell@bitbucket.org/markoell/arduino-neomatrix.git'
 */
 
+#include <gfxfont.h>
+#include <Adafruit_SPITFT_Macros.h>
+#include <Adafruit_SPITFT.h>
+#include <Adafruit_GFX.h>
+#include <gamma.h>
+#include <Adafruit_NeoMatrix.h>
 #include <SPI.h>
 #include <SD.h>
 
@@ -14,37 +20,38 @@
 #define SDCARD_CS_PIN 10
 #define BUTTON_EXEC_PIN 2
 #define BUTTON_RESET_PIN 3
+#define EVENT_TRIGGER_ACTION RISING
+
+//Debug
+#define DEBUG_TRIGGER_PIN 7
+#define DEBUG_READ_PIN 8
 
 
 //Matrix Dimensions
-
-#define MATRIX_DATA_PIN	6
+#define DATA_PIN	6
 #define N_LEDS 448
 #define NEO_MATRIX_HIGHT 16
 #define NEO_MATRIX_WIDTH 28
 
-Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT, PIN,
+Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT, DATA_PIN,
   NEO_MATRIX_BOTTOM + NEO_MATRIX_RIGHT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,
   NEO_GRB + NEO_KHZ800);
 
-//LED Colors
-const uint16_t colors[16];
+//LED Colors                  black                 red                       blue                      gelb
+const uint16_t colors[4] = { matrix.Color(0, 0, 0), matrix.Color(255, 0, 0), matrix.Color(0, 255, 0), matrix.Color(0, 0, 255) };
 
 //Debug 
-bool debugMode = true;  //TODO disable Debug when Jumper can read
-const byte outputPin = MATRIX_DATA_PIN;
+bool debugMode = false;  //TODO disable Debug when Jumper can read
+const byte outputPin = DATA_PIN;
 
 // Interrupts
-const byte interruptExecutePin = BUTTON_EXEC_PIN;
-volatile boolean shouldRun = false;
-const byte interruptResetPin = BUTTON_RESET_PIN;
-volatile boolean isResetSet = false;
+const byte interruptNextPin = BUTTON_EXEC_PIN;
+volatile boolean nextAction = false;
+const byte interruptReversePin = BUTTON_RESET_PIN;
+volatile boolean lastAction = false;
 
 //Global
 volatile boolean sdCardFailed;
-
-//SD Module
-const int chipSelect = SDCARD_CS_PIN;
 
 void setup() {
   
@@ -55,57 +62,55 @@ void setup() {
     }
     Serial.println("DebugMode Set");
   }
-  else{
-	for (byte i=0; i<3; i++){
-		for(byte j=0; j<5;j++){
-			colors[(i*5+j)] = GetColor(i, j);		
-		}
-	}
-  }
   
   //Interrupts
   printDebugMessages("Init Interrupt Pins");
-  pinMode(interruptExecutePin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(interruptExecutePin), startAction, RISING);
-  //TODO Reset Button
-  pinMode(interruptResetPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(interruptResetPin), resetAction, RISING);
+  pinMode(interruptNextPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(interruptNextPin), executeNextAction, EVENT_TRIGGER_ACTION);
+  pinMode(interruptReversePin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(interruptReversePin), executeLastAction, EVENT_TRIGGER_ACTION);
 
   //Init SD card reader
-  if (!SD.begin(chipSelect)) {
-    printDebugMessages("initialization failed!");
-    sdCardFailed = true;
-    return;
+  printDebugMessages("Initialize SD Card");
+  if (!SD.begin(SDCARD_CS_PIN)) {
+    printDebugMessages("Initialization failed!");
+    errorPin(outputPin);
   }
   printDebugMessages("initialization done.");
   
-  //TODO Check Debug State
+  //Check Debug State
+  pinMode(DEBUG_TRIGGER_PIN, OUTPUT);
+  pinMode(DEBUG_READ_PIN, INPUT);
+  digitalWrite(DEBUG_TRIGGER_PIN, HIGH);
+  delayMicroseconds(500);
+  int val = digitalRead(DEBUG_READ_PIN);
+  digitalWrite(DEBUG_TRIGGER_PIN, LOW);
+  if (val == HIGH) {
+    debugMode = true;
+  }
+
+  printDebugMessages(String("DebugMode: ") + String(debugMode));
   //For Debug Purpose Only
   pinMode(outputPin, OUTPUT);
-  
-  
-  
+
   //TODO Init Matrix
 }
 
 void loop() {
-
-  if (sdCardFailed) {
-    errorPin(outputPin);
-  }
-
   static byte executionCount;
   byte executionSwitch = 1; //TODO provide value from rotary switch
   
   //TODO reset when needed
-  if(isResetSet){
-    printDebugMessages("Reset is Pressed");
-    executionCount = 0;
-    isResetSet = false;
+  //TODO don't return here
+  if (nextAction == false) return;
+  executionCount++;
+
+  if(lastAction){
+    executionCount--;
+    lastAction = false;
     return;
   }
-  if(shouldRun == false) return;
-  executionCount++;
+  
   
   String executionCountAsString = String(executionCount);
   
@@ -137,31 +142,17 @@ void loop() {
     showDebugPinAction(outputPin);  
   }
   myFile.close();
-  shouldRun = false;
+  nextAction = false;
   
 }
 
-
-uint16_t GetColor(byte i, byte y){
-	switch (i){
-	case 0: 
-		return matrix.Color(y * 50, 0, 0);
-		case 1: 
-		return matrix.Color(0, y * 50, 0);
-		case 2: 
-		return matrix.Color(0, 0 , y * 50);
-		default:
-	}
-}
-
-
 // Interrupts
-void startAction() {
-  shouldRun = true;
+void executeNextAction() {
+  nextAction = true;
 }
 
-void resetAction(){
-  isResetSet = true;
+void executeLastAction(){
+  lastAction = true;
 }
 
 #pragma region SDCard
