@@ -1,0 +1,11 @@
+*.xml
+*.h
+*.filters
+*.vcxproj
+*.a
+*.buildinfo
+*.hex
+*.elf
+*.o
+*.d
+*.sln
