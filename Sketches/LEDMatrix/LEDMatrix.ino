@@ -7,12 +7,12 @@
   Get latest source code: 'git clone https://markoell@bitbucket.org/markoell/arduino-neomatrix.git'
 */
 
-#include <gfxfont.h>
-#include <Adafruit_SPITFT_Macros.h>
-#include <Adafruit_SPITFT.h>
+
 #include <Adafruit_GFX.h>
-#include <gamma.h>
+#include <Adafruit_NeoPixel.h>
 #include <Adafruit_NeoMatrix.h>
+
+//#include <gamma.h>
 #include <SPI.h>
 #include <SD.h>
 
@@ -33,12 +33,28 @@
 #define NEO_MATRIX_HIGHT 16
 #define NEO_MATRIX_WIDTH 28
 
+#define MAX_COLOR_VAL 255
+
 Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT, DATA_PIN,
   NEO_MATRIX_BOTTOM + NEO_MATRIX_RIGHT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,
   NEO_GRB + NEO_KHZ800);
 
+
+
+struct RGB {
+  byte r;
+  byte g;
+  byte b;
+};
+
+RGB off = { 0, 0, 0 };
+RGB red = { MAX_COLOR_VAL, 0 , 0 };
+RGB green = { 0, MAX_COLOR_VAL, 0 };
+RGB blue = { 0, 0, MAX_COLOR_VAL };
+RGB white = { MAX_COLOR_VAL, MAX_COLOR_VAL, MAX_COLOR_VAL };
+
 //LED Colors                  black                 red                       blue                      gelb
-const uint16_t colors[4] = { matrix.Color(0, 0, 0), matrix.Color(255, 0, 0), matrix.Color(0, 255, 0), matrix.Color(0, 0, 255) };
+const uint16_t colors[5] = { 0, matrix.Color(red.r, red.g, red.b), matrix.Color(green.r, green.g, green.b), matrix.Color(blue.r, blue.g, blue.b), matrix.Color(white.r, white.g, white.b) };
 
 //Debug 
 bool debugMode = false;  //TODO disable Debug when Jumper can read
