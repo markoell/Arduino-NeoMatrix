@@ -7,10 +7,9 @@
 // the setup function runs once when you press reset or power the board
 
 #include <SD.h>
-#include <avr/pgmspace.h>
 
-const String commandText[] PROGMEM = { "act", "msc", "val", "arr", "nxt" };
-const String actionText[] PROGMEM = { "flk", "txt", "fill" };
+const String commandText[] = { "act", "msc", "val", "arr", "nxt" };
+const String actionText[] = { "flk", "txt", "fill" };
 
 enum Cmd { act, msc, val, arr, nxt, CommandUndefined };
 enum Act { flk, txt, fill, ActionUndefined };

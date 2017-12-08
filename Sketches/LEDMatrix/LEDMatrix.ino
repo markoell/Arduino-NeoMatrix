@@ -2,144 +2,182 @@
   LEDMatrix
 
   TODO Beschreibung ???
-  
+
   Online on Bitbucket https://bitbucket.org/markoell/arduino-neomatrix
   Get latest source code: 'git clone https://markoell@bitbucket.org/markoell/arduino-neomatrix.git'
 */
 
+//#include <SPI.h>
+//#include <SD.h>   //Problem Memory (uses 512 Byte on runtime) 
 
 #include <Adafruit_GFX.h>
 #include <Adafruit_NeoPixel.h>
 #include <Adafruit_NeoMatrix.h>
 
 //#include <gamma.h>
-#include <SPI.h>
-#include <SD.h>
+
+//#include <avr/pgmspace.h>
 
 //Pin Configuration
-#define SDCARD_CS_PIN 10
-#define BUTTON_EXEC_PIN 2
-#define BUTTON_RESET_PIN 3
-#define EVENT_TRIGGER_ACTION RISING
+const uint8_t SDCARD_CS_PIN = 10;
+const uint8_t BUTTON_EXEC_PIN = 2;
+const uint8_t BUTTON_RESET_PIN = 3;
+const uint8_t EVENT_TRIGGER_ACTION = RISING;
 
 //Debug
-#define DEBUG_TRIGGER_PIN 7
-#define DEBUG_READ_PIN 8
+const uint8_t DEBUG_TRIGGER_PIN = 7;
+const uint8_t DEBUG_READ_PIN = 8;
 
 
 //Matrix Dimensions
-#define DATA_PIN	6
-#define N_LEDS 448
-#define NEO_MATRIX_HIGHT 16
-#define NEO_MATRIX_WIDTH 28
+const uint8_t DATA_PIN = 6;
+const uint16_t N_LEDS = 448;  //To much pins, will collide with SD Card
+const int NEO_MATRIX_HIGHT = 16;
+const int NEO_MATRIX_WIDTH = 28;
 
-#define MAX_COLOR_VAL 255
-
+//  !!Don't touch this unless you know what you do!!
 Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT, DATA_PIN,
   NEO_MATRIX_BOTTOM + NEO_MATRIX_RIGHT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,
   NEO_GRB + NEO_KHZ800);
 
+//other options
+const uint8_t MAX_COLOR_VAL = 255;
 
-
-struct RGB {
-  byte r;
-  byte g;
-  byte b;
-};
-
-RGB off = { 0, 0, 0 };
-RGB red = { MAX_COLOR_VAL, 0 , 0 };
-RGB green = { 0, MAX_COLOR_VAL, 0 };
-RGB blue = { 0, 0, MAX_COLOR_VAL };
-RGB white = { MAX_COLOR_VAL, MAX_COLOR_VAL, MAX_COLOR_VAL };
+#pragma region Color
 
 //LED Colors                  black                 red                       blue                      gelb
-const uint16_t colors[5] = { 0, matrix.Color(red.r, red.g, red.b), matrix.Color(green.r, green.g, green.b), matrix.Color(blue.r, blue.g, blue.b), matrix.Color(white.r, white.g, white.b) };
+const uint16_t colorsbw[] = { 0, matrix.Color(MAX_COLOR_VAL, MAX_COLOR_VAL, MAX_COLOR_VAL) };
+const uint16_t colorsRed[15] =
+{
+  matrix.Color(0x10, 0, 0),
+  matrix.Color(0x20, 0, 0),
+  matrix.Color(0x30, 0, 0),
+  matrix.Color(0x40, 0, 0),
+  matrix.Color(0x50, 0, 0),
+  matrix.Color(0x60, 0, 0),
+  matrix.Color(0x70, 0, 0),
+  matrix.Color(0x80, 0, 0),
+  matrix.Color(0x90, 0, 0),
+  matrix.Color(0xA0, 0, 0),
+  matrix.Color(0xB0, 0, 0),
+  matrix.Color(0xC0, 0, 0),
+  matrix.Color(0xD0, 0, 0),
+  matrix.Color(0xE0, 0, 0),
+  matrix.Color(0xF0, 0, 0)
+};
 
-//Debug 
-bool debugMode = false;  //TODO disable Debug when Jumper can read
-const byte outputPin = DATA_PIN;
+const uint16_t colorsGreen[15] =
+{
+  matrix.Color(0, 0x10, 0),
+  matrix.Color(0, 0x20, 0),
+  matrix.Color(0, 0x30, 0),
+  matrix.Color(0, 0x40, 0),
+  matrix.Color(0, 0x50, 0),
+  matrix.Color(0, 0x60, 0),
+  matrix.Color(0, 0x70, 0),
+  matrix.Color(0, 0x80, 0),
+  matrix.Color(0, 0x90, 0),
+  matrix.Color(0, 0xA0, 0),
+  matrix.Color(0, 0xB0, 0),
+  matrix.Color(0, 0xC0, 0),
+  matrix.Color(0, 0xD0, 0),
+  matrix.Color(0, 0xE0, 0),
+  matrix.Color(0, 0xF0, 0)
+};
+
+const uint16_t colorsBlue[15] =
+{
+  matrix.Color(0, 0, 0x10),
+  matrix.Color(0, 0, 0x20),
+  matrix.Color(0, 0, 0x30),
+  matrix.Color(0, 0, 0x40),
+  matrix.Color(0, 0, 0x50),
+  matrix.Color(0, 0, 0x60),
+  matrix.Color(0, 0, 0x70),
+  matrix.Color(0, 0, 0x80),
+  matrix.Color(0, 0, 0x90),
+  matrix.Color(0, 0, 0xA0),
+  matrix.Color(0, 0, 0xB0),
+  matrix.Color(0, 0, 0xC0),
+  matrix.Color(0, 0, 0xD0),
+  matrix.Color(0, 0, 0xE0),
+  matrix.Color(0, 0, 0xF0)
+};
+
+#pragma endregion
+
+//Output
+static boolean isDebugMode;
+const uint8_t outputPin = DATA_PIN;
+
+#pragma region DebugOutputMessages
+
+const char debugMsg_DebugModeSet[] PROGMEM = "DebugMode Set";
+const char debugMsg_InitInterruptPin[] PROGMEM = "Initialize Interrupt Pin";
+const char debugMsg_InitSDCardReader[] PROGMEM = "Initialize SD Card Reader";
+const char debugMsg_InitFailed[] PROGMEM = "Initialization failed!";
+const char debugMsg_InitDone[] PROGMEM = "Initialization done.";
+
+#pragma endregion
 
 // Interrupts
-const byte interruptNextPin = BUTTON_EXEC_PIN;
+const uint8_t interruptNextPin = BUTTON_EXEC_PIN;
 volatile boolean nextAction = false;
 const byte interruptReversePin = BUTTON_RESET_PIN;
 volatile boolean lastAction = false;
 
 //Global
-volatile boolean sdCardFailed;
+
 
 void setup() {
-  
-  if(debugMode){
-    Serial.begin(9600); // opens serial port, sets data rate to 9600 bps
-    while (!Serial) {
-      ; // wait for serial port to connect. Needed for native USB port only
-    }
-    Serial.println("DebugMode Set");
-  }
-  
+
+  isDebugMode = CheckDebugState(DEBUG_TRIGGER_PIN, DEBUG_READ_PIN);
+
+  //InitializeSerialPortInDebugMode(isDebugMode);
+  InitializeSerialPortInDebugMode(true);
+
   //Interrupts
-  printDebugMessages("Init Interrupt Pins");
-  pinMode(interruptNextPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(interruptNextPin), executeNextAction, EVENT_TRIGGER_ACTION);
-  pinMode(interruptReversePin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(interruptReversePin), executeLastAction, EVENT_TRIGGER_ACTION);
+  RegisterInterrupt(interruptNextPin, executeNextAction, EVENT_TRIGGER_ACTION);
+  RegisterInterrupt(interruptReversePin, executeLastAction, EVENT_TRIGGER_ACTION);
 
+  //Initialize output to Matrix
+  InitializeDataPort(isDebugMode, DATA_PIN);
+//Serial.println("test");
+while(1){
+      ;
+    }
   //Init SD card reader
-  printDebugMessages("Initialize SD Card");
-  if (!SD.begin(SDCARD_CS_PIN)) {
-    printDebugMessages("Initialization failed!");
-    errorPin(outputPin);
-  }
-  printDebugMessages("initialization done.");
-  
-  //Check Debug State
-  pinMode(DEBUG_TRIGGER_PIN, OUTPUT);
-  pinMode(DEBUG_READ_PIN, INPUT);
-  digitalWrite(DEBUG_TRIGGER_PIN, HIGH);
-  delayMicroseconds(500);
-  int val = digitalRead(DEBUG_READ_PIN);
-  digitalWrite(DEBUG_TRIGGER_PIN, LOW);
-  if (val == HIGH) {
-    debugMode = true;
-  }
-
-  printDebugMessages(String("DebugMode: ") + String(debugMode));
-  //For Debug Purpose Only
-  pinMode(outputPin, OUTPUT);
-
-  //TODO Init Matrix
+//  InitializeSDCardReader(SDCARD_CS_PIN);
 }
 
 void loop() {
+  return;
+  /*
   static byte executionCount;
   byte executionSwitch = 1; //TODO provide value from rotary switch
-  
+
   //TODO reset when needed
   //TODO don't return here
   if (nextAction == false) return;
   executionCount++;
 
-  if(lastAction){
+  if (lastAction) {
     executionCount--;
     lastAction = false;
     return;
   }
-  
-  
   String executionCountAsString = String(executionCount);
-  
+
   //TODO Check rotary switch
 
   //TODO Check execution count
-  printDebugMessages(executionCountAsString);
+  //printDebugMessages(executionCountAsString);
 
   //TODO reset when needed
-  
+
   //TODO read SDCard file A<rotarySwitch>_<executionCount>.txt
   String fileName = String("A" + String(executionSwitch) + "_" + executionCountAsString);
-  printDebugMessages("Open File " + fileName);
+  //printDebugMessages("Open File " + fileName);
 
   File myFile;
   myFile = SD.open(fileName);
@@ -148,80 +186,126 @@ void loop() {
     //Serial.print(String("+" + myFile.read()));
     HandleSDCardInput(myFile.read());
   }
-  
+
   //TODO reset when needed
   //TODO blink action if needed
-  
+
   //TODO reset if needed
   //TODO write Pattern
-  if(debugMode){
-    showDebugPinAction(outputPin);  
-  }
+  if (isDebugMode) {
+    showDebugPinAction(outputPin);
+ // }
   myFile.close();
   nextAction = false;
-  
+  */
 }
 
+
+boolean CheckDebugState(const uint8_t triggerPin, const uint8_t inputPin) {
+  //Check Debug State
+  pinMode(triggerPin, OUTPUT);
+  pinMode(inputPin, INPUT);
+  digitalWrite(triggerPin, HIGH);
+  delayMicroseconds(500);
+  int val = digitalRead(inputPin);
+  digitalWrite(triggerPin, LOW);
+  if (val == HIGH) {
+    return false;
+  }
+  return true;
+}
+
+void InitializeSerialPortInDebugMode(const boolean debugMode) {
+  if (debugMode) {
+    Serial.begin(9600); // opens serial port, sets data rate to 9600 bps
+    while (!Serial) {
+      ; // wait for serial port to connect. Needed for native USB port only
+    }
+    printDebugMessages(debugMode, debugMsg_DebugModeSet);
+  }
+}
+
+#pragma region Interrupts
 // Interrupts
+
+void RegisterInterrupt(const uint8_t interruptPin, void (*executeAction)() , const uint8_t trigger) {
+  printDebugMessages(debugMsg_InitInterruptPin, String(interruptPin).c_str());
+  pinMode(interruptPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(interruptPin), executeAction, trigger);
+}
 void executeNextAction() {
   nextAction = true;
 }
 
-void executeLastAction(){
+void executeLastAction() {
   lastAction = true;
 }
 
+#pragma endregion
+
 #pragma region SDCard
-
-boolean HandleSDCardInput(int input) {
-
-  Serial.print(input);
-  Serial.write(input);
-  static char buffer[4];
-  static byte position;
-  static boolean isCmd = true;
-  static boolean isComment = false;
-
-  char t = (char)input;
-  switch (t) {
-    case ':':
-      isCmd = false;
-      position = 0;
-      break;
-    case '#':
-      isComment = true;
-      break;
-    case '|': break;
-    case '\r': 
-    case '\n': 
-      isCmd = true;
-      isComment = false;
-      break;
-    case ' ': break;
-    default: 
-      if (!isComment) {
-        buffer[position] = t;
-        position++;
-      }
-      return false;
+/*
+void InitializeSDCardReader(uint8_t csPin) {
+  printDebugMessages(debugMsg_InitSDCardReader);
+  if (!SD.begin(csPin)) {
+    printDebugMessages(debugMsg_InitFailed);
+    errorPin(outputPin);
   }
-
-  /*if (position >= 3) {
-    position = 0;
-  }*/
-  
-  return true;
+  printDebugMessages(debugMsg_InitDone);
+}
+*/
+boolean HandleSDCardInput(int input) {
+return false;
 }
 
 #pragma endregion
 
 
+#pragma region Output
+
+void InitializeDataPort(const boolean isDebugMode, const uint8_t outputPin) {
+  //For Debug Purpose Only
+  Serial.println("Hello");
+  if (isDebugMode) {
+    pinMode(outputPin, OUTPUT);
+  }
+  else {
+    matrix.begin();
+    //matrix.setBrightness(0);
+    matrix.fillScreen(matrix.Color(128,0,0));
+    matrix.show();
+    Serial.println("Show");
+  }
+
+  //TODO Init Matrix
+}
+
+#pragma endregion
+
 #pragma region DebugMethods
 
-void printDebugMessages(String msg) {
-  if (debugMode) {
-    Serial.println(msg);
+void printDebugMessages(const char* msg) {
+  printDebugMessages(isDebugMode, msg, NULL);
+}
+
+void printDebugMessages(const boolean debugMode, const char* msg) {
+  printDebugMessages(debugMode, msg, NULL);
+}
+
+void printDebugMessages(const char* msg, const char* appendix) {
+  printDebugMessages(isDebugMode, msg, appendix);
+}
+
+void printDebugMessages(const boolean debugMode, const char* msg, const char* appendix) {
+  return;
+  if (!debugMode) { return; }
+  char buffer[30];
+  strcpy_P(buffer, (char*)pgm_read_word(msg));
+  if (appendix != NULL) {
+    strcat(buffer, " ");
+    strcat(buffer, appendix);
   }
+  Serial.println(buffer);
 }
 
 void showDebugPinAction(int ledPin) {
@@ -238,12 +322,17 @@ void showDebugPinAction(int ledPin) {
 }
 
 void errorPin(int ledPin) {
-  pinMode(ledPin, OUTPUT);
-  while (true) {
-    digitalWrite(ledPin, HIGH);
-    delay(250);
-    digitalWrite(ledPin, LOW);
-    delay(250);
+  if (isDebugMode) {
+    pinMode(ledPin, OUTPUT);
+    while (true) {
+      digitalWrite(ledPin, HIGH);
+      delay(250);
+      digitalWrite(ledPin, LOW);
+      delay(250);
+    }
+  }
+  else {
+    //TODO Write Matrix Status LED [First in Line]
   }
 }
 
