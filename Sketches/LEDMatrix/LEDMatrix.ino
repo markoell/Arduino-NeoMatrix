@@ -352,6 +352,9 @@ void loop() {
     Flicker(DEFAULT_DELAY_IN_MS, cycleCount);
     ShowYear(arr1884);
     delay(2000);
+    if (isDebugMode) {
+      okPin(DATA_PIN);
+    }
     ShowYear(arr1984);
   }
   else if (cycleCount == 3) {
@@ -369,6 +372,9 @@ void loop() {
   else if (cycleCount == 6) {
     Flicker(DEFAULT_DELAY_IN_MS, cycleCount);
     ShowYear(arr2118);
+  }
+  else if (cycleCount == 7) {
+    Clear();
     cycleCount = 0;
   }
   ResetActionTrigger();
@@ -440,7 +446,11 @@ void InitializeDataPort(const boolean isDebugMode, const uint8_t outputPin) {
     matrix.show();
   }
 
-  //TODO Init Matrix
+}
+
+void Clear() {
+  matrix.setBrightness(Colors[Luminance::off]);
+  matrix.show();
 }
 
 #pragma endregion
@@ -451,6 +461,10 @@ void InitializeDataPort(const boolean isDebugMode, const uint8_t outputPin) {
 
 void ShowStatusOk() {
   okPin(DATA_PIN);
+  for (int i = 0; i < 20; i++) {
+    delay(250);
+    if (nextAction == true || lastAction == true) { return; }
+  }
 }
 
 void ResetActionTrigger() {
@@ -493,6 +507,9 @@ void ShowEnter1884() {
   delay(DEFAULT_ENTERDELAY_IN_MS);
   ShowYear(arr1884);
   delay(DEFAULT_ENTERDELAY_IN_MS);
+  if (isDebugMode) {
+    okPin(DATA_PIN);
+  }
 }
 
 void ShowEnter2118() {
@@ -504,6 +521,9 @@ void ShowEnter2118() {
   delay(DEFAULT_ENTERDELAY_IN_MS);
   ShowYear(arr2118);
   delay(DEFAULT_ENTERDELAY_IN_MS);
+  if (isDebugMode) {
+    okPin(DATA_PIN);
+  }
 }
 
 void ShowYear(const uint8_t arr[16][4]) {
@@ -589,12 +609,8 @@ void okPin(int ledPin) {
     matrix.drawPixel(NEO_MATRIX_WIDTH - 1, NEO_MATRIX_HIGHT - 1, Colors[Luminance::mid]);
     matrix.show();
     delay(statuslightOnTimeInMs);
-    matrix.setBrightness(0);
+    matrix.setBrightness(Luminance::off);
     matrix.show();
-  }
-  for (int i = 0; i < 20; i++) {
-    delay(250);
-    if (nextAction == true || lastAction == true) { return; }
   }
 }
 
