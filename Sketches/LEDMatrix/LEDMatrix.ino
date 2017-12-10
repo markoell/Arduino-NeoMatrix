@@ -18,6 +18,8 @@
 
 //#include <avr/pgmspace.h>
 
+#include <stdlib.h>     /* srand, rand */
+
 //Pin Configuration
 const uint8_t SDCARD_CS_PIN = 10;
 const uint8_t BUTTON_EXEC_PIN = 2;
@@ -40,69 +42,36 @@ Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGH
   NEO_MATRIX_BOTTOM + NEO_MATRIX_RIGHT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,
   NEO_GRB + NEO_KHZ800);
 
-//other options
-const uint8_t MAX_COLOR_VAL = 255;
-
 #pragma region Color
 
-//LED Colors                  black                 red                       blue                      gelb
+const uint8_t MID_COLOR_VAL = 0x7F;
+const uint8_t MAX_COLOR_VAL = 0xFF;
+
+const uint16_t Colors[] = { 0, matrix.Color(MID_COLOR_VAL, 0, 0), matrix.Color(MAX_COLOR_VAL, 0, 0) };
+
+enum Color : byte { r = 0, g, b };
+enum Luminance : byte { off = 0, mid, max };
+
 const uint16_t colorsbw[] = { 0, matrix.Color(MAX_COLOR_VAL, MAX_COLOR_VAL, MAX_COLOR_VAL) };
-const uint16_t colorsRed[15] =
+const uint16_t colorsRed[2] =
 {
-  matrix.Color(0x10, 0, 0),
-  matrix.Color(0x20, 0, 0),
-  matrix.Color(0x30, 0, 0),
-  matrix.Color(0x40, 0, 0),
-  matrix.Color(0x50, 0, 0),
-  matrix.Color(0x60, 0, 0),
-  matrix.Color(0x70, 0, 0),
-  matrix.Color(0x80, 0, 0),
-  matrix.Color(0x90, 0, 0),
-  matrix.Color(0xA0, 0, 0),
-  matrix.Color(0xB0, 0, 0),
-  matrix.Color(0xC0, 0, 0),
-  matrix.Color(0xD0, 0, 0),
-  matrix.Color(0xE0, 0, 0),
-  matrix.Color(0xF0, 0, 0)
+  matrix.Color(MID_COLOR_VAL, 0, 0),
+  matrix.Color(MAX_COLOR_VAL, 0, 0)
 };
 
-const uint16_t colorsGreen[15] =
+const uint16_t colorsGreen[2] =
 {
-  matrix.Color(0, 0x10, 0),
-  matrix.Color(0, 0x20, 0),
-  matrix.Color(0, 0x30, 0),
-  matrix.Color(0, 0x40, 0),
-  matrix.Color(0, 0x50, 0),
-  matrix.Color(0, 0x60, 0),
-  matrix.Color(0, 0x70, 0),
-  matrix.Color(0, 0x80, 0),
-  matrix.Color(0, 0x90, 0),
-  matrix.Color(0, 0xA0, 0),
-  matrix.Color(0, 0xB0, 0),
-  matrix.Color(0, 0xC0, 0),
-  matrix.Color(0, 0xD0, 0),
-  matrix.Color(0, 0xE0, 0),
-  matrix.Color(0, 0xF0, 0)
+  matrix.Color(0, MID_COLOR_VAL, 0),
+  matrix.Color(0, MAX_COLOR_VAL, 0)
 };
 
-const uint16_t colorsBlue[15] =
+const uint16_t colorsBlue[2] =
 {
-  matrix.Color(0, 0, 0x10),
-  matrix.Color(0, 0, 0x20),
-  matrix.Color(0, 0, 0x30),
-  matrix.Color(0, 0, 0x40),
-  matrix.Color(0, 0, 0x50),
-  matrix.Color(0, 0, 0x60),
-  matrix.Color(0, 0, 0x70),
-  matrix.Color(0, 0, 0x80),
-  matrix.Color(0, 0, 0x90),
-  matrix.Color(0, 0, 0xA0),
-  matrix.Color(0, 0, 0xB0),
-  matrix.Color(0, 0, 0xC0),
-  matrix.Color(0, 0, 0xD0),
-  matrix.Color(0, 0, 0xE0),
-  matrix.Color(0, 0, 0xF0)
+  matrix.Color(0, 0, MID_COLOR_VAL),
+  matrix.Color(0, 0, MAX_COLOR_VAL)
 };
+
+const uint16_t* const matrixColors[][2] = { colorsRed, colorsGreen, colorsBlue };
 
 #pragma endregion
 
@@ -127,14 +96,226 @@ const byte interruptReversePin = BUTTON_RESET_PIN;
 volatile boolean lastAction = false;
 
 //Global
+const uint32_t DEFAULT_DELAY_IN_MS = 3000;
+const uint32_t DEFAULT_ENTERDELAY_IN_MS = 250;
 
+
+const uint8_t arr0001[][4] = {
+  { 0x1, 0x00, 0x00, 0x00 },
+  { 0x3, 0x00, 0x00, 0x00 },
+  { 0x7, 0x00, 0x00, 0x00 },
+  { 0xF, 0x00, 0x00, 0x00 },
+  { 0x3, 0x00, 0x00, 0x00 },
+  { 0x3, 0x00, 0x00, 0x00 },
+  { 0x3, 0x00, 0x00, 0x00 },
+  { 0x3, 0x00, 0x00, 0x00 },
+  { 0x3, 0x00, 0x00, 0x00 },
+  { 0x3, 0x00, 0x00, 0x00 },
+  { 0x3, 0x00, 0x00, 0x00 },
+  { 0x3, 0x00, 0x00, 0x00 },
+  { 0x3, 0x00, 0x00, 0x00 },
+  { 0x3, 0x00, 0x00, 0x00 },
+  { 0x7, 0x80, 0x00, 0x00 },
+  { 0x7, 0x80, 0x00, 0x00 }
+};
+
+const uint8_t arr0018[][4] = {
+  { 0x1, 0x1F, 0x00, 0x00 },
+  { 0x3, 0x3F, 0x80, 0x00 },
+  { 0x7, 0x31, 0x80, 0x00 },
+  { 0xF, 0x31, 0x80, 0x00 },
+  { 0x3, 0x31, 0x80, 0x00 },
+  { 0x3, 0x31, 0x80, 0x00 },
+  { 0x3, 0x3F, 0x80, 0x00 },
+  { 0x3, 0x1F, 0x00, 0x00 },
+  { 0x3, 0x3F, 0x80, 0x00 },
+  { 0x3, 0x31, 0x80, 0x00 },
+  { 0x3, 0x31, 0x80, 0x00 },
+  { 0x3, 0x31, 0x80, 0x00 },
+  { 0x3, 0x31, 0x80, 0x00 },
+  { 0x3, 0x31, 0x80, 0x00 },
+  { 0x7, 0xBF, 0x80, 0x00 },
+  { 0x7, 0x9F, 0x00, 0x00 }
+};
+const uint8_t arr0188[][4] = {
+  { 0x1, 0x1F, 0x1E, 0x00 },
+  { 0x3, 0x3F, 0xBF, 0x80 },
+  { 0x7, 0x31, 0xB1, 0x80 },
+  { 0xF, 0x31, 0xB1, 0x80 },
+  { 0x3, 0x31, 0xB1, 0x80 },
+  { 0x3, 0x31, 0xB1, 0x80 },
+  { 0x3, 0x3F, 0xBF, 0x80 },
+  { 0x3, 0x1F, 0x1F, 0x00 },
+  { 0x3, 0x3F, 0xBF, 0x80 },
+  { 0x3, 0x31, 0xB1, 0x80 },
+  { 0x3, 0x31, 0xB1, 0x80 },
+  { 0x3, 0x31, 0xB1, 0x80 },
+  { 0x3, 0x31, 0xB1, 0x80 },
+  { 0x3, 0x31, 0xB1, 0x80 },
+  { 0x7, 0xBF, 0xBF, 0x80 },
+  { 0x7, 0x9F, 0x1F, 0x00 }
+};
+
+const uint8_t arr1884[][4] = {
+  { 0x1, 0x1F, 0x1E, 0x36 },
+  { 0x3, 0x3F, 0xBF, 0xB6 },
+  { 0x7, 0x31, 0xB1, 0xB6 },
+  { 0xF, 0x31, 0xB1, 0xB6 },
+  { 0x3, 0x31, 0xB1, 0xB6 },
+  { 0x3, 0x31, 0xB1, 0xB6 },
+  { 0x3, 0x3F, 0xBF, 0xBF },
+  { 0x3, 0x1F, 0x1F, 0x3F },
+  { 0x3, 0x3F, 0xBF, 0x86 },
+  { 0x3, 0x31, 0xB1, 0x86 },
+  { 0x3, 0x31, 0xB1, 0x86 },
+  { 0x3, 0x31, 0xB1, 0x86 },
+  { 0x3, 0x31, 0xB1, 0x86 },
+  { 0x3, 0x31, 0xB1, 0x86 },
+  { 0x7, 0xBF, 0xBF, 0x86 },
+  { 0x7, 0x9F, 0x1F, 0x6 }
+};
+
+/* Currently not needed by storryboard
+const uint8_t arr0019[][4] = {
+  { 0x1, 0x1F, 0x00, 0x00 },
+  { 0x3, 0x3F, 0x80, 0x00 },
+  { 0x7, 0x31, 0x80, 0x00 },
+  { 0xF, 0x31, 0x80, 0x00 },
+  { 0x3, 0x31, 0x80, 0x00 },
+  { 0x3, 0x31, 0x80, 0x00 },
+  { 0x3, 0x3F, 0x80, 0x00 },
+  { 0x3, 0x3F, 0x80, 0x00 },
+  { 0x3, 0x1F, 0x80, 0x00 },
+  { 0x3, 0x01, 0x80, 0x00 },
+  { 0x3, 0x01, 0x80, 0x00 },
+  { 0x3, 0x01, 0x80, 0x00 },
+  { 0x3, 0x01, 0x80, 0x00 },
+  { 0x3, 0x31, 0x80, 0x00 },
+  { 0x7, 0xBF, 0x80, 0x00 },
+  { 0x7, 0x9F, 0x00, 0x00 }
+};
+const uint8_t arr0198[][4] = {
+  { 0x1, 0x1F, 0x1E, 0x00 },
+  { 0x3, 0x3F, 0xBF, 0x80 },
+  { 0x7, 0x31, 0xB1, 0x80 },
+  { 0xF, 0x31, 0xB1, 0x80 },
+  { 0x3, 0x31, 0xB1, 0x80 },
+  { 0x3, 0x31, 0xB1, 0x80 },
+  { 0x3, 0x3F, 0xBF, 0x80 },
+  { 0x3, 0x3F, 0x9F, 0x00 },
+  { 0x3, 0x1F, 0xBF, 0x80 },
+  { 0x3, 0x01, 0xB1, 0x80 },
+  { 0x3, 0x01, 0xB1, 0x80 },
+  { 0x3, 0x01, 0xB1, 0x80 },
+  { 0x3, 0x01, 0xB1, 0x80 },
+  { 0x3, 0x31, 0xB1, 0x80 },
+  { 0x7, 0xBF, 0xBF, 0x80 },
+  { 0x7, 0x9F, 0x1F, 0x00 }
+};
+*/
+
+const uint8_t arr1984[][4] = {
+  { 0x1, 0x1F, 0x1E, 0x36 },
+  { 0x3, 0x3F, 0xBF, 0xB6 },
+  { 0x7, 0x31, 0xB1, 0xB6 },
+  { 0xF, 0x31, 0xB1, 0xB6 },
+  { 0x3, 0x31, 0xB1, 0xB6 },
+  { 0x3, 0x31, 0xB1, 0xB6 },
+  { 0x3, 0x3F, 0xBF, 0xBF },
+  { 0x3, 0x3F, 0x9F, 0x3F },
+  { 0x3, 0x1F, 0xBF, 0x86 },
+  { 0x3, 0x01, 0xB1, 0x86 },
+  { 0x3, 0x01, 0xB1, 0x86 },
+  { 0x3, 0x01, 0xB1, 0x86 },
+  { 0x3, 0x01, 0xB1, 0x86 },
+  { 0x3, 0x31, 0xB1, 0x86 },
+  { 0x7, 0xBF, 0xBF, 0x86 },
+  { 0x7, 0x9F, 0x1F, 0x06 }
+};
+
+const uint8_t arr0002[][4] = {
+  { 0x7, 0xE0, 0x00, 0x00 },
+  { 0xF, 0xF0, 0x00, 0x00 },
+  { 0xC, 0x30, 0x00, 0x00 },
+  { 0x0, 0x30, 0x00, 0x00 },
+  { 0x0, 0x30, 0x00, 0x00 },
+  { 0x0, 0x30, 0x00, 0x00 },
+  { 0x0, 0x70, 0x00, 0x00 },
+  { 0x0, 0xE0, 0x00, 0x00 },
+  { 0x3, 0x80, 0x00, 0x00 },
+  { 0x7, 0x00, 0x00, 0x00 },
+  { 0xE, 0x00, 0x00, 0x00 },
+  { 0xC, 0x00, 0x00, 0x00 },
+  { 0xC, 0x00, 0x00, 0x00 },
+  { 0xC, 0x00, 0x00, 0x00 },
+  { 0xF, 0xF0, 0x00, 0x00 },
+  { 0xF, 0xF0, 0x00, 0x00 }
+};
+
+const uint8_t arr0021[][4] = {
+  { 0x7, 0xE0, 0x80, 0x00 },
+  { 0xF, 0xF1, 0x80, 0x00 },
+  { 0xC, 0x33, 0x80, 0x00 },
+  { 0x0, 0x37, 0x80, 0x00 },
+  { 0x0, 0x31, 0x80, 0x00 },
+  { 0x0, 0x31, 0x80, 0x00 },
+  { 0x0, 0x71, 0x80, 0x00 },
+  { 0x0, 0xE1, 0x80, 0x00 },
+  { 0x3, 0x81, 0x80, 0x00 },
+  { 0x7, 0x01, 0x80, 0x00 },
+  { 0xE, 0x01, 0x80, 0x00 },
+  { 0xC, 0x01, 0x80, 0x00 },
+  { 0xC, 0x01, 0x80, 0x00 },
+  { 0xC, 0x01, 0x80, 0x00 },
+  { 0xF, 0xF3, 0xC0, 0x00 },
+  { 0xF, 0xF3, 0xC0, 0x00 }
+};
+
+const uint8_t arr0211[][4] = {
+  { 0x7, 0xE0, 0x82, 0x00 },
+  { 0xF, 0xF1, 0x86, 0x00 },
+  { 0xC, 0x33, 0x8E, 0x00 },
+  { 0x0, 0x37, 0x9E, 0x00 },
+  { 0x0, 0x31, 0x86, 0x00 },
+  { 0x0, 0x31, 0x86, 0x00 },
+  { 0x0, 0x71, 0x86, 0x00 },
+  { 0x0, 0xE1, 0x86, 0x00 },
+  { 0x3, 0x81, 0x86, 0x00 },
+  { 0x7, 0x01, 0x86, 0x00 },
+  { 0xE, 0x01, 0x86, 0x00 },
+  { 0xC, 0x01, 0x86, 0x00 },
+  { 0xC, 0x01, 0x86, 0x00 },
+  { 0xC, 0x01, 0x86, 0x00 },
+  { 0xF, 0xF3, 0xCF, 0x00 },
+  { 0xF, 0xF3, 0xCF, 0x00 }
+};
+
+const uint8_t arr2118[][4] = {
+  { 0x7, 0xE0, 0x82, 0x3E },
+  { 0xF, 0xF1, 0x86, 0x7F },
+  { 0xC, 0x33, 0x8E, 0x63 },
+  { 0x0, 0x37, 0x9E, 0x63 },
+  { 0x0, 0x31, 0x86, 0x63 },
+  { 0x0, 0x31, 0x86, 0x63 },
+  { 0x0, 0x71, 0x86, 0x7F },
+  { 0x0, 0xE1, 0x86, 0x3E },
+  { 0x3, 0x81, 0x86, 0x7F },
+  { 0x7, 0x01, 0x86, 0x63 },
+  { 0xE, 0x01, 0x86, 0x63 },
+  { 0xC, 0x01, 0x86, 0x63 },
+  { 0xC, 0x01, 0x86, 0x63 },
+  { 0xC, 0x01, 0x86, 0x63 },
+  { 0xF, 0xF3, 0xCF, 0x7F },
+  { 0xF, 0xF3, 0xCF, 0x3E }
+};
+
+void RegisterInterrupt(const uint8_t, void(*)(), const uint8_t);
 
 void setup() {
 
-  isDebugMode = CheckDebugState(DEBUG_TRIGGER_PIN, DEBUG_READ_PIN);
+  isDebugMode = ScanDebugState(DEBUG_TRIGGER_PIN, DEBUG_READ_PIN);
 
-  //InitializeSerialPortInDebugMode(isDebugMode);
-  InitializeSerialPortInDebugMode(true);
+  InitializeSerialPortInDebugMode(isDebugMode);
 
   //Interrupts
   RegisterInterrupt(interruptNextPin, executeNextAction, EVENT_TRIGGER_ACTION);
@@ -142,77 +323,73 @@ void setup() {
 
   //Initialize output to Matrix
   InitializeDataPort(isDebugMode, DATA_PIN);
-//Serial.println("test");
-while(1){
-      ;
-    }
-  //Init SD card reader
-//  InitializeSDCardReader(SDCARD_CS_PIN);
 }
 
 void loop() {
-  return;
-  /*
-  static byte executionCount;
-  byte executionSwitch = 1; //TODO provide value from rotary switch
+  delay(250);
+  static uint8_t cycleCount;
 
-  //TODO reset when needed
-  //TODO don't return here
-  if (nextAction == false) return;
-  executionCount++;
-
-  if (lastAction) {
-    executionCount--;
-    lastAction = false;
+  if (nextAction == false && lastAction == false) { 
+    if (cycleCount == 0)
+    {
+      ShowStatusOk();
+    }
     return;
   }
-  String executionCountAsString = String(executionCount);
 
-  //TODO Check rotary switch
-
-  //TODO Check execution count
-  //printDebugMessages(executionCountAsString);
-
-  //TODO reset when needed
-
-  //TODO read SDCard file A<rotarySwitch>_<executionCount>.txt
-  String fileName = String("A" + String(executionSwitch) + "_" + executionCountAsString);
-  //printDebugMessages("Open File " + fileName);
-
-  File myFile;
-  myFile = SD.open(fileName);
-
-  while (myFile.available()) {
-    //Serial.print(String("+" + myFile.read()));
-    HandleSDCardInput(myFile.read());
+  if (nextAction == true) {
+    cycleCount++;
+  }
+  else if (lastAction && cycleCount > 0) {
+    cycleCount--;
   }
 
-  //TODO reset when needed
-  //TODO blink action if needed
-
-  //TODO reset if needed
-  //TODO write Pattern
-  if (isDebugMode) {
-    showDebugPinAction(outputPin);
- // }
-  myFile.close();
-  nextAction = false;
-  */
+  if (cycleCount == 1) {
+    ShowEnter1884();
+    //return;
+  }
+  else if (cycleCount == 2) {
+    Flicker(DEFAULT_DELAY_IN_MS, cycleCount);
+    ShowYear(arr1884);
+    delay(2000);
+    ShowYear(arr1984);
+  }
+  else if (cycleCount == 3) {
+    ShowEnter1884();
+    //return;
+  }
+  else if (cycleCount == 4) {
+    Flicker(DEFAULT_DELAY_IN_MS, cycleCount);
+    ShowYear(arr1884);
+  }
+  else if (cycleCount == 5) {
+    ShowEnter2118();
+    //return;
+  }
+  else if (cycleCount == 6) {
+    Flicker(DEFAULT_DELAY_IN_MS, cycleCount);
+    ShowYear(arr2118);
+    cycleCount = 0;
+  }
+  ResetActionTrigger();
+  return;
 }
 
+#pragma region Init
 
-boolean CheckDebugState(const uint8_t triggerPin, const uint8_t inputPin) {
+boolean ScanDebugState(const uint8_t triggerPin, const uint8_t inputPin) {
   //Check Debug State
   pinMode(triggerPin, OUTPUT);
   pinMode(inputPin, INPUT);
   digitalWrite(triggerPin, HIGH);
-  delayMicroseconds(500);
+  delayMicroseconds(20);
   int val = digitalRead(inputPin);
+  delayMicroseconds(20);
   digitalWrite(triggerPin, LOW);
   if (val == HIGH) {
-    return false;
+    return true;
   }
-  return true;
+  return false;
 }
 
 void InitializeSerialPortInDebugMode(const boolean debugMode) {
@@ -228,56 +405,132 @@ void InitializeSerialPortInDebugMode(const boolean debugMode) {
 #pragma region Interrupts
 // Interrupts
 
-void RegisterInterrupt(const uint8_t interruptPin, void (*executeAction)() , const uint8_t trigger) {
+void RegisterInterrupt(const uint8_t interruptPin, void(*executeAction)(), const uint8_t trigger) {
   printDebugMessages(debugMsg_InitInterruptPin, String(interruptPin).c_str());
   pinMode(interruptPin, INPUT);
   attachInterrupt(digitalPinToInterrupt(interruptPin), executeAction, trigger);
 }
 void executeNextAction() {
+  if (isDebugMode) {
+    Serial.print("Trigger Next");
+  }
   nextAction = true;
 }
 
 void executeLastAction() {
+  if (isDebugMode) {
+    Serial.print("Trigger Last");
+  }
   lastAction = true;
 }
 
 #pragma endregion
 
-#pragma region SDCard
-/*
-void InitializeSDCardReader(uint8_t csPin) {
-  printDebugMessages(debugMsg_InitSDCardReader);
-  if (!SD.begin(csPin)) {
-    printDebugMessages(debugMsg_InitFailed);
-    errorPin(outputPin);
-  }
-  printDebugMessages(debugMsg_InitDone);
-}
-*/
-boolean HandleSDCardInput(int input) {
-return false;
-}
-
-#pragma endregion
-
-
 #pragma region Output
 
 void InitializeDataPort(const boolean isDebugMode, const uint8_t outputPin) {
   //For Debug Purpose Only
-  Serial.println("Hello");
   if (isDebugMode) {
     pinMode(outputPin, OUTPUT);
+    Serial.print(" Init Debug");
   }
   else {
     matrix.begin();
-    //matrix.setBrightness(0);
-    matrix.fillScreen(matrix.Color(128,0,0));
+    matrix.fillScreen(Colors[0]);
     matrix.show();
-    Serial.println("Show");
   }
 
   //TODO Init Matrix
+}
+
+#pragma endregion
+
+#pragma endregion
+
+#pragma region Execution
+
+void ShowStatusOk() {
+  okPin(DATA_PIN);
+}
+
+void ResetActionTrigger() {
+  if (isDebugMode) {
+    Serial.println("Reset");
+  }
+  nextAction = lastAction = false;
+}
+
+void Flicker(uint32_t ms, uint8_t count) {
+
+  uint32_t start = millis();
+  uint32_t end = start + ms;
+  if (isDebugMode) {
+    Serial.print(" Show Debug");
+    showDebugPinAction(DATA_PIN, count);
+  }
+  else {
+    do {
+      FillMatrixRandom(matrix, NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT);
+      matrix.show();
+    } while (millis() < end);
+  }
+}
+
+void FillMatrixRandom(Adafruit_NeoMatrix matrix, int sizeX, int sizeY) {
+  for (int y = 0; y < sizeY; y++) {
+    for (int x = 0; x < sizeX; x++) {
+      matrix.drawPixel(x, y, Colors[rand() % (sizeof(Colors) / sizeof(uint16_t))]);
+    }
+  }
+}
+
+void ShowEnter1884() {
+  ShowYear(arr0001);
+  delay(DEFAULT_ENTERDELAY_IN_MS);
+  ShowYear(arr0018);
+  delay(DEFAULT_ENTERDELAY_IN_MS);
+  ShowYear(arr0188);
+  delay(DEFAULT_ENTERDELAY_IN_MS);
+  ShowYear(arr1884);
+  delay(DEFAULT_ENTERDELAY_IN_MS);
+}
+
+void ShowEnter2118() {
+  ShowYear(arr0002);
+  delay(DEFAULT_ENTERDELAY_IN_MS);
+  ShowYear(arr0021);
+  delay(DEFAULT_ENTERDELAY_IN_MS);
+  ShowYear(arr0211);
+  delay(DEFAULT_ENTERDELAY_IN_MS);
+  ShowYear(arr2118);
+  delay(DEFAULT_ENTERDELAY_IN_MS);
+}
+
+void ShowYear(const uint8_t arr[16][4]) {
+  for (int y = 0; y < 16; y++) {
+    uint8_t pos = 27;
+    for (int x = 3; x >= 0; x--)
+    {
+      for (int i = 0; i < 8; i++) {
+        boolean res = arr[y][x] & (0x01 << i);
+        if (isDebugMode) {
+          Serial.print(pos);
+          Serial.print(':');
+          Serial.print(res);
+          Serial.print(',');
+        }
+        else {
+          matrix.drawPixel(pos, y, Colors[Luminance::mid]);
+        }
+        if (pos == 0) { break; }
+        pos--;
+      }
+      if (pos == 0) { break; }
+    }
+    if (isDebugMode) {
+      Serial.println();
+    }
+  }
 }
 
 #pragma endregion
@@ -308,17 +561,41 @@ void printDebugMessages(const boolean debugMode, const char* msg, const char* ap
   Serial.println(buffer);
 }
 
-void showDebugPinAction(int ledPin) {
+void Pause() {
+  while (1) {}
+}
+
+void showDebugPinAction(int ledPin, uint8_t count) {
   pinMode(ledPin, OUTPUT);
 
-  digitalWrite(ledPin, HIGH);
-  delay(500);                  // waits for a second
-  digitalWrite(ledPin, LOW);        // sets the digital pin 13 off
-  delay(500);                  // waits for a second
-  digitalWrite(ledPin, HIGH);
-  delay(500);                  // waits for a second
-  digitalWrite(ledPin, LOW);        // sets the digital pin 13 off
-  delay(500);
+  for (uint8_t i = 0; i < count; i++)
+  {
+    digitalWrite(ledPin, HIGH);
+    delay(500);                  // waits for a second
+    digitalWrite(ledPin, LOW);        // sets the digital pin 13 off
+    delay(500);                  // waits for a second
+  }
+}
+
+void okPin(int ledPin) {
+  static uint32_t statuslightOnTimeInMs = 25;
+  if (isDebugMode) {
+    pinMode(ledPin, OUTPUT);
+    digitalWrite(ledPin, HIGH);
+    delay(statuslightOnTimeInMs);
+    digitalWrite(ledPin, LOW);
+  }
+  else {
+    matrix.drawPixel(NEO_MATRIX_WIDTH - 1, NEO_MATRIX_HIGHT - 1, Colors[Luminance::mid]);
+    matrix.show();
+    delay(statuslightOnTimeInMs);
+    matrix.setBrightness(0);
+    matrix.show();
+  }
+  for (int i = 0; i < 20; i++) {
+    delay(250);
+    if (nextAction == true || lastAction == true) { return; }
+  }
 }
 
 void errorPin(int ledPin) {
