@@ -65,8 +65,7 @@ Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGH
   NEO_MATRIX_BOTTOM + NEO_MATRIX_RIGHT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,
   NEO_GRB + NEO_KHZ800);
 
-const uint16_t colors[] = {
-  matrix.Color(255, 0, 0), matrix.Color(0, 255, 0), matrix.Color(0, 0, 255) };
+const uint16_t colors[] = {  matrix.Color(0, 0, 0), matrix.Color(0x7F, 0, 0), matrix.Color(0xFF, 0, 0) };
 
 int maxCounter = 50; //Dauer / Wiederholungen Krisseln
 //int[] jahre = 2017, 1539,...
@@ -83,6 +82,46 @@ void setup() {
   matrix.setTextColor(colors[0]);
   matrix.fillScreen(0);
   matrix.show();
+
+  Serial.begin(9600);
+  while(!Serial){}
+  static uint32_t statuslightOnTimeInMs = 100;
+
+//matrix.drawPixel(NEO_MATRIX_WIDTH - 1, NEO_MATRIX_HIGHT - 1, colors[0]);
+/*
+  while(1){
+    matrix.drawPixel(NEO_MATRIX_WIDTH - 1, NEO_MATRIX_HIGHT - 1, colors[0]);
+    matrix.show();       
+    delay(statuslightOnTimeInMs);
+    matrix.drawPixel(NEO_MATRIX_WIDTH - 1, NEO_MATRIX_HIGHT - 1, 0);
+    matrix.show();
+    delay(2000);
+    }
+    */  
+    uint32_t start = millis();
+  uint32_t tt = start + 500;
+  Serial.print("Zeichne1");
+    do {
+      //Serial.print("Zeichne2");
+      FillMatrixRandom(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT);
+      //FillMatrixRandom(5, 3);
+      matrix.show();
+      delay(1000);
+    } while (true);
+    
+    //matrix.fillScreen(0);
+  //matrix.show();
+  while(1){}
+}
+
+void FillMatrixRandom(int sizeX, int sizeY) {
+  for (int y = 0; y < sizeY; y++) {
+    for (int x = 0; x < sizeX; x++) {
+      matrix.drawPixel(x, y, colors[rand() % (sizeof(colors) / sizeof(uint16_t))]);
+      
+      //matrix.drawPixel(1, 2, colors[1]);
+    }
+  }
 }
 
 void loop() {

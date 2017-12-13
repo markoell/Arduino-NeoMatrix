@@ -21,7 +21,6 @@
 #include <stdlib.h>     /* srand, rand */
 
 //Pin Configuration
-const uint8_t SDCARD_CS_PIN = 10;
 const uint8_t BUTTON_EXEC_PIN = 2;
 const uint8_t BUTTON_RESET_PIN = 3;
 const uint8_t EVENT_TRIGGER_ACTION = RISING;
@@ -33,9 +32,13 @@ const uint8_t DEBUG_READ_PIN = 8;
 
 //Matrix Dimensions
 const uint8_t DATA_PIN = 6;
-const uint16_t N_LEDS = 448;  //To much pins, will collide with SD Card
-const int NEO_MATRIX_HIGHT = 16;
+//const uint16_t N_LEDS = 448;  //To much pins, will collide with SD Card
+//const int NEO_MATRIX_HIGHT = 16;
+//const int NEO_MATRIX_WIDTH = 28;
+
+const int NEO_MATRIX_HIGHT = 15;
 const int NEO_MATRIX_WIDTH = 28;
+
 
 //  !!Don't touch this unless you know what you do!!
 Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT, DATA_PIN,
@@ -52,6 +55,8 @@ const uint16_t Colors[] = { 0, matrix.Color(MID_COLOR_VAL, 0, 0), matrix.Color(M
 enum Color : byte { r = 0, g, b };
 enum Luminance : byte { off = 0, mid, max };
 
+const Luminance DEFAUL_LUMINANCE = Luminance::max;
+/*
 const uint16_t colorsbw[] = { 0, matrix.Color(MAX_COLOR_VAL, MAX_COLOR_VAL, MAX_COLOR_VAL) };
 const uint16_t colorsRed[2] =
 {
@@ -72,7 +77,7 @@ const uint16_t colorsBlue[2] =
 };
 
 const uint16_t* const matrixColors[][2] = { colorsRed, colorsGreen, colorsBlue };
-
+*/
 #pragma endregion
 
 //Output
@@ -80,13 +85,13 @@ static boolean isDebugMode;
 const uint8_t outputPin = DATA_PIN;
 
 #pragma region DebugOutputMessages
-
+/*
 const char debugMsg_DebugModeSet[] PROGMEM = "DebugMode Set";
 const char debugMsg_InitInterruptPin[] PROGMEM = "Initialize Interrupt Pin";
 const char debugMsg_InitSDCardReader[] PROGMEM = "Initialize SD Card Reader";
 const char debugMsg_InitFailed[] PROGMEM = "Initialization failed!";
 const char debugMsg_InitDone[] PROGMEM = "Initialization done.";
-
+*/
 #pragma endregion
 
 // Interrupts
@@ -99,7 +104,7 @@ volatile boolean lastAction = false;
 const uint32_t DEFAULT_DELAY_IN_MS = 3000;
 const uint32_t DEFAULT_ENTERDELAY_IN_MS = 250;
 
-
+/*
 const uint8_t arr0001[][4] = {
   { 0x1, 0x00, 0x00, 0x00 },
   { 0x3, 0x00, 0x00, 0x00 },
@@ -155,7 +160,7 @@ const uint8_t arr0188[][4] = {
   { 0x7, 0xBF, 0xBF, 0x80 },
   { 0x7, 0x9F, 0x1F, 0x00 }
 };
-
+*/
 const uint8_t arr1884[][4] = {
   { 0x1, 0x1F, 0x1E, 0x36 },
   { 0x3, 0x3F, 0xBF, 0xB6 },
@@ -232,7 +237,7 @@ const uint8_t arr1984[][4] = {
   { 0x7, 0xBF, 0xBF, 0x86 },
   { 0x7, 0x9F, 0x1F, 0x06 }
 };
-
+/*
 const uint8_t arr0002[][4] = {
   { 0x7, 0xE0, 0x00, 0x00 },
   { 0xF, 0xF0, 0x00, 0x00 },
@@ -289,7 +294,7 @@ const uint8_t arr0211[][4] = {
   { 0xF, 0xF3, 0xCF, 0x00 },
   { 0xF, 0xF3, 0xCF, 0x00 }
 };
-
+*/
 const uint8_t arr2118[][4] = {
   { 0x7, 0xE0, 0x82, 0x3E },
   { 0xF, 0xF1, 0x86, 0x7F },
@@ -316,6 +321,7 @@ void setup() {
   isDebugMode = ScanDebugState(DEBUG_TRIGGER_PIN, DEBUG_READ_PIN);
 
   InitializeSerialPortInDebugMode(isDebugMode);
+  //InitializeSerialPortInDebugMode(true);
 
   //Interrupts
   RegisterInterrupt(interruptNextPin, executeNextAction, EVENT_TRIGGER_ACTION);
@@ -328,6 +334,9 @@ void setup() {
 void loop() {
   delay(250);
   static uint8_t cycleCount;
+
+  /*Serial.print("Cycle: ");
+  Serial.println(cycleCount);*/
 
   if (nextAction == false && lastAction == false) { 
     if (cycleCount == 0)
@@ -345,8 +354,9 @@ void loop() {
   }
 
   if (cycleCount == 1) {
-    ShowEnter1884();
-    //return;
+  //  ShowEnter1884();
+ //   cycleCount++;
+    return;
   }
   else if (cycleCount == 2) {
     Flicker(DEFAULT_DELAY_IN_MS, cycleCount);
@@ -358,24 +368,27 @@ void loop() {
     ShowYear(arr1984);
   }
   else if (cycleCount == 3) {
-    ShowEnter1884();
-    //return;
+//    ShowEnter1884();
+//    cycleCount++;
+    return;
   }
   else if (cycleCount == 4) {
     Flicker(DEFAULT_DELAY_IN_MS, cycleCount);
     ShowYear(arr1884);
   }
   else if (cycleCount == 5) {
-    ShowEnter2118();
-    //return;
+    //ShowEnter2118();
+//    cycleCount++;
+    return;
   }
   else if (cycleCount == 6) {
     Flicker(DEFAULT_DELAY_IN_MS, cycleCount);
     ShowYear(arr2118);
   }
-  else if (cycleCount == 7) {
+  else if (cycleCount >= 7) {
     Clear();
     cycleCount = 0;
+    delay(500);
   }
   ResetActionTrigger();
   return;
@@ -404,7 +417,7 @@ void InitializeSerialPortInDebugMode(const boolean debugMode) {
     while (!Serial) {
       ; // wait for serial port to connect. Needed for native USB port only
     }
-    printDebugMessages(debugMode, debugMsg_DebugModeSet);
+//    printDebugMessages(debugMode, debugMsg_DebugModeSet);
   }
 }
 
@@ -412,7 +425,7 @@ void InitializeSerialPortInDebugMode(const boolean debugMode) {
 // Interrupts
 
 void RegisterInterrupt(const uint8_t interruptPin, void(*executeAction)(), const uint8_t trigger) {
-  printDebugMessages(debugMsg_InitInterruptPin, String(interruptPin).c_str());
+  //printDebugMessages(debugMsg_InitInterruptPin, String(interruptPin).c_str());
   pinMode(interruptPin, INPUT);
   attachInterrupt(digitalPinToInterrupt(interruptPin), executeAction, trigger);
 }
@@ -449,7 +462,7 @@ void InitializeDataPort(const boolean isDebugMode, const uint8_t outputPin) {
 }
 
 void Clear() {
-  matrix.setBrightness(Colors[Luminance::off]);
+  matrix.fillScreen(Colors[Luminance::off]);
   matrix.show();
 }
 
@@ -484,20 +497,20 @@ void Flicker(uint32_t ms, uint8_t count) {
   }
   else {
     do {
-      FillMatrixRandom(matrix, NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT);
+      FillMatrixRandom(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT);
       matrix.show();
     } while (millis() < end);
   }
 }
 
-void FillMatrixRandom(Adafruit_NeoMatrix matrix, int sizeX, int sizeY) {
+void FillMatrixRandom(int sizeX, int sizeY) {
   for (int y = 0; y < sizeY; y++) {
     for (int x = 0; x < sizeX; x++) {
       matrix.drawPixel(x, y, Colors[rand() % (sizeof(Colors) / sizeof(uint16_t))]);
     }
   }
 }
-
+/*
 void ShowEnter1884() {
   ShowYear(arr0001);
   delay(DEFAULT_ENTERDELAY_IN_MS);
@@ -525,10 +538,13 @@ void ShowEnter2118() {
     okPin(DATA_PIN);
   }
 }
-
+*/
 void ShowYear(const uint8_t arr[16][4]) {
-  for (int y = 0; y < 16; y++) {
-    uint8_t pos = 27;
+  matrix.fillScreen(Colors[Luminance::off]);
+
+
+  for (int y = 0; y < NEO_MATRIX_HIGHT; y++) {
+    uint8_t pos = NEO_MATRIX_WIDTH - 1;
     for (int x = 3; x >= 0; x--)
     {
       for (int i = 0; i < 8; i++) {
@@ -540,7 +556,7 @@ void ShowYear(const uint8_t arr[16][4]) {
           Serial.print(',');
         }
         else {
-          matrix.drawPixel(pos, y, Colors[Luminance::mid]);
+          matrix.drawPixel(pos, y, (res > 0) ? Colors[DEFAUL_LUMINANCE] : Colors[Luminance::off]);
         }
         if (pos == 0) { break; }
         pos--;
@@ -550,6 +566,7 @@ void ShowYear(const uint8_t arr[16][4]) {
     if (isDebugMode) {
       Serial.println();
     }
+    matrix.show();
   }
 }
 
@@ -598,7 +615,7 @@ void showDebugPinAction(int ledPin, uint8_t count) {
 }
 
 void okPin(int ledPin) {
-  static uint32_t statuslightOnTimeInMs = 25;
+  static uint32_t statuslightOnTimeInMs = 100;
   if (isDebugMode) {
     pinMode(ledPin, OUTPUT);
     digitalWrite(ledPin, HIGH);
@@ -606,10 +623,10 @@ void okPin(int ledPin) {
     digitalWrite(ledPin, LOW);
   }
   else {
-    matrix.drawPixel(NEO_MATRIX_WIDTH - 1, NEO_MATRIX_HIGHT - 1, Colors[Luminance::mid]);
+    matrix.drawPixel(NEO_MATRIX_WIDTH - 1, NEO_MATRIX_HIGHT - 1, Colors[DEFAUL_LUMINANCE]);
     matrix.show();
     delay(statuslightOnTimeInMs);
-    matrix.setBrightness(Luminance::off);
+    matrix.drawPixel(NEO_MATRIX_WIDTH - 1, NEO_MATRIX_HIGHT - 1, Colors[Luminance::off]);
     matrix.show();
   }
 }
