@@ -101,7 +101,7 @@ const byte interruptReversePin = BUTTON_RESET_PIN;
 volatile boolean lastAction = false;
 
 //Global
-const uint32_t DEFAULT_DELAY_IN_MS = 3000;
+const uint32_t DEFAULT_DELAY_IN_MS = 7500;
 const uint32_t DEFAULT_ENTERDELAY_IN_MS = 250;
 
 /*
@@ -319,7 +319,6 @@ void RegisterInterrupt(const uint8_t, void(*)(), const uint8_t);
 void setup() {
 
   isDebugMode = ScanDebugState(DEBUG_TRIGGER_PIN, DEBUG_READ_PIN);
-
   InitializeSerialPortInDebugMode(isDebugMode);
   //InitializeSerialPortInDebugMode(true);
 
