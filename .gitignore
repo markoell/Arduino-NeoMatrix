@@ -1,5 +1,4 @@
 *.xml
-*.h
 *.filters
 *.vcxproj
 *.a
@@ -10,3 +9,6 @@
 *.d
 *.sln
 /Sketches/.vs
+/Sketches/ArduinoReadSDCard/__vm
+/Sketches/LEDMatrix/__vm
+/Sketches/LEDMatrix/Debug
