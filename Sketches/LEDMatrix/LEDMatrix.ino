@@ -31,15 +31,12 @@ const uint8_t EVENT_TRIGGER_ACTION = RISING;
 const uint8_t DEBUG_TRIGGER_PIN = 7;
 const uint8_t DEBUG_READ_PIN = 8;
 
-
 //Matrix Dimensions
 const uint8_t DATA_PIN = 6;
-//const uint16_t N_LEDS = 448;  //To much pins, will collide with SD Card
-//const int NEO_MATRIX_HIGHT = 16;
-//const int NEO_MATRIX_WIDTH = 28;
 
-const int NEO_MATRIX_HIGHT = 15;
+const int NEO_MATRIX_HIGHT = 16;
 const int NEO_MATRIX_WIDTH = 28;
+const uint16_t TOTAL_NUMBER_LEDS = NEO_MATRIX_HIGHT * NEO_MATRIX_WIDTH;
 
 //  !!Don't touch this unless you know what you do!!
 Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT, DATA_PIN,
