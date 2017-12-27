@@ -11,9 +11,6 @@
 //#include <SD.h>   //Problem Memory (uses 512 Byte on runtime) 
 
 #include "FastLED.h"
-
-//#include <gamma.h>
-
 //#include <avr/pgmspace.h>
 
 #include <stdlib.h>     /* srand, rand */
@@ -47,7 +44,6 @@ const uint8_t MAX_COLOR_VAL = 0xFF;
 
 const CRGB Colors[] = { CRGB::Black, CRGB(MID_COLOR_VAL, 0, 0), CRGB(MAX_COLOR_VAL, 0, 0) };
 
-enum Color : byte { r = 0, g, b };
 enum Luminance : byte { off = 0, mid, max };
 
 const Luminance DEFAUL_LUMINANCE = Luminance::max;
@@ -56,7 +52,6 @@ const Luminance DEFAUL_LUMINANCE = Luminance::max;
 
 //Output
 static boolean isDebugMode;
-const uint8_t outputPin = DATA_PIN;
 
 #pragma region DebugOutputMessages
 /*
@@ -241,8 +236,6 @@ void Clear() {
 
 #pragma endregion
 
-#pragma endregion
-
 #pragma region Execution
 
 const uint8_t ReadSwitchValue(const uint8_t pin) {
@@ -252,7 +245,7 @@ const uint8_t ReadSwitchValue(const uint8_t pin) {
 void ShowStatusOk() {
   okPin(DATA_PIN);
   for (int i = 0; i < 20; i++) {
-    delay(250);
+    delay(DEFAULT_ENTERDELAY_IN_MS);
     if (nextAction == true || lastAction == true) { return; }
   }
 }
@@ -265,7 +258,7 @@ void ResetActionTrigger() {
 }
 
 void Flicker(uint32_t ms, uint8_t count) {
-
+  //TODO add interrupt
   uint32_t start = millis();
   uint32_t end = start + ms;
   if (isDebugMode) {
@@ -287,7 +280,7 @@ void FillMatrixRandom(const uint8_t sizeX, const uint8_t sizeY) {
 
 void FillMatrixRandom(const uint16_t numberLeds) {
   for (int i = 0; i < numberLeds; i++) {
-    leds[i] = rand() & 0x01 ? CRGB::Red : CRGB::Black;
+    leds[i] = Colors[rand() % (sizeof(Colors) / sizeof(CRGB))];
   }
 }
 
@@ -306,7 +299,7 @@ void ShowYear(const uint8_t arr[16][4]) {
           Serial.print(',');
         }
         else {
-          leds[XY(pos, y, true)] = res > 0 ? CRGB::Red : CRGB::Black;
+          leds[XY(pos, y, true)] = res > 0 ? Colors[DEFAUL_LUMINANCE] : Colors[Luminance::off];
         }
         if (pos == 0) { break; }
         pos--;
@@ -373,26 +366,33 @@ void okPin(int ledPin) {
     digitalWrite(ledPin, LOW);
   }
   else {
-    leds[0] = CRGB::Red;
+    leds[0] = Colors[Luminance::mid];
     FastLED.show();
     delay(statuslightOnTimeInMs);
-    leds[0] = CRGB::Black;
+    leds[0] = Colors[Luminance::off];
     FastLED.show();
   }
 }
 
 void errorPin(int ledPin) {
+
+  long delayInMs = 250;
   if (isDebugMode) {
     pinMode(ledPin, OUTPUT);
     while (true) {
       digitalWrite(ledPin, HIGH);
-      delay(250);
+      delay(delayInMs);
       digitalWrite(ledPin, LOW);
-      delay(250);
+      delay(delayInMs);
     }
   }
   else {
-    //TODO Write Matrix Status LED [First in Line]
+    leds[0] = Colors[Luminance::mid];
+    FastLED.show();
+    delay(delayInMs);
+    leds[0] = Colors[Luminance::off];
+    FastLED.show();
+    delay(delayInMs);
   }
 }
 
@@ -421,4 +421,3 @@ uint16_t XY(uint8_t x, uint8_t y, bool kMatrixSerpentineLayout)
 }
 
 #pragma endregion
-
