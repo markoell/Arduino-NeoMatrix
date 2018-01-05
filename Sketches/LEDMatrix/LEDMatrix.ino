@@ -91,7 +91,6 @@ void setup() {
 void loop() {
 
   uint8_t val = ReadSwitchValue(FUNCTION_SWITCH_PIN);
-  
   bool resetCycleCounter = false;
   static uint8_t cycleCount;
 
@@ -186,15 +185,13 @@ void InitializeSerialPortInDebugMode(const boolean debugMode) {
     while (!Serial) {
       ; // wait for serial port to connect. Needed for native USB port only
     }
-//    printDebugMessages(debugMode, debugMsg_DebugModeSet);
+    Serial.println(F("Serial Print on"));
   }
 }
 
 #pragma region Interrupts
-// Interrupts
 
 void RegisterInterrupt(const uint8_t interruptPin, void(*executeAction)(), const uint8_t trigger) {
-  //printDebugMessages(debugMsg_InitInterruptPin, String(interruptPin).c_str());
   pinMode(interruptPin, INPUT);
   attachInterrupt(digitalPinToInterrupt(interruptPin), executeAction, trigger);
 }
@@ -309,8 +306,8 @@ void ShowYear(const uint8_t arr[16][4]) {
     if (isDebugMode) {
       Serial.println();
     }
-    FastLED.show();
   }
+  FastLED.show();
 }
 
 #pragma endregion
@@ -407,17 +404,17 @@ uint16_t XY(uint8_t x, uint8_t y, bool kMatrixSerpentineLayout)
   {
     uint8_t stepsX;
     if (y & 0x01) {
-      // Odd rows run backwards
-      stepsX = (NEO_MATRIX_WIDTH - 1) - x;
+      // Even rows run backwards
+      stepsX = x;
     }
     else {
-      // Even rows run forwards
-      stepsX = x;
+      // Odd rows run forwards
+      stepsX = (NEO_MATRIX_WIDTH - 1) - x;
     }
     i = (y * NEO_MATRIX_WIDTH) + stepsX;
   }
 
-  return TOTAL_NUMBER_LEDS - i; //starting point is TOP LEFT instead BOTTOM RIGHT
+  return TOTAL_NUMBER_LEDS - 1 - i; //starting point is TOP LEFT instead BOTTOM RIGHT
 }
 
 #pragma endregion
