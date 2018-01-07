@@ -46,11 +46,11 @@ CRGB leds[TOTAL_NUMBER_LEDS];
 const uint8_t MID_COLOR_VAL = 0x7F;
 const uint8_t MAX_COLOR_VAL = 0xFF;
 
-const CRGB Colors[] = { CRGB::Black, CRGB(MID_COLOR_VAL, 0, 0), CRGB(MAX_COLOR_VAL, 0, 0), (0, MID_COLOR_VAL, 0), (0, MAX_COLOR_VAL, 0), (0, 0, MID_COLOR_VAL), (0, 0, MAX_COLOR_VAL) };
+const CRGB Colors[] = { CRGB::Black, CRGB(MID_COLOR_VAL, 0, 0), CRGB(MAX_COLOR_VAL, 0, 0), (0, MID_COLOR_VAL, 0), (0, MAX_COLOR_VAL, 0), (0, 0, MID_COLOR_VAL), (0, 0, MAX_COLOR_VAL), (MAX_COLOR_VAL, MAX_COLOR_VAL, MAX_COLOR_VAL) };
 
-enum Luminance : byte { off = 0, mid, max };
+enum Luminance : byte { off = 0, rmid, rmax, gmid, gmax, bmid, bmax, white };
 
-const Luminance DEFAUL_LUMINANCE = Luminance::max;
+const Luminance DEFAULT_LUMINANCE = Luminance::rmax;
 
 #pragma endregion
 
@@ -107,13 +107,13 @@ void loop() {
   
   switch (val) {
   case 1:
-    resetCycleCounter = RunFirst(cycleCount);
+    resetCycleCounter = Run1(cycleCount);
     break;
   case 2:
-    resetCycleCounter = RunSecond(cycleCount);
+    resetCycleCounter = Run2(cycleCount);
     break;
   case 3:
-    resetCycleCounter = RunThird(cycleCount);
+    resetCycleCounter = Run3(cycleCount);
     break;
   }
   if (resetCycleCounter) {
@@ -123,22 +123,22 @@ void loop() {
   return;
 }
 
-bool RunFirst(const uint8_t cycle) {
+bool Run1(const uint8_t cycle) {
   if (cycle == 1) {
     Flicker(DEFAULT_DELAY_IN_MS, cycle);
-    ShowYear(arr1884);
+    DisplayValue(arr1884);
     delay(2000);
-    ShowYear(arr1984);
+    DisplayValue(arr1984);
   }
   else if (cycle == 2) {
     Flicker(DEFAULT_DELAY_IN_MS, cycle);
-    ShowYear(arr1884);
+    DisplayValue(arr1884);
   }
   else if (cycle == 3) {
     Flicker(DEFAULT_DELAY_IN_MS, cycle);
-    ShowYear(arr2118);
+    DisplayValue(arr2118);
   }
-  else if (cycle >= 4) {
+  else {
     Clear();
     delay(500);
     return true;
@@ -150,12 +150,16 @@ void ResetSwitchTimeBuffer(){
   timeDiff = 0;
 }
 
-bool RunSecond(const uint8_t cycle) {
+bool Run2(const uint8_t cycle) {
   if (cycle == 1) {
-    Flicker(DEFAULT_DELAY_IN_MS, cycle);
-    ShowYear(arr2018);
+    Flicker(Colors[Luminance::bmax], DEFAULT_DELAY_IN_MS, cycle);
+    DisplayValue(Colors[Luminance::bmax], arr2018);
   }
-  else if (cycle >= 2) {
+  else if (cycle == 2) {
+    Flicker(Colors[Luminance::bmax], DEFAULT_DELAY_IN_MS, cycle);
+    DisplayValue(Colors[Luminance::bmax], arr1965);
+  }
+  else {
     Clear();
     delay(500);
     return true;
@@ -163,8 +167,25 @@ bool RunSecond(const uint8_t cycle) {
   return false;
 }
 
-bool RunThird(const uint8_t cycle) {
-  return true;
+bool Run3(const uint8_t cycle) {
+  if (cycle == 1) {
+    //DisplayValue(Colors[Luminance::bmax], arr60);
+  }
+  else if (cycle == 2) {
+    //DisplayValue(Colors[Luminance::bmax], arr70);
+  }
+  else if (cycle == 3) {
+    //DisplayValue(Colors[Luminance::bmax], arr80);
+  }
+  else if (cycle == 3) {
+    DisplayDisco();
+  }
+  else {
+    Clear();
+    delay(500);
+    return true;
+  }
+  return false;
 }
 
 #pragma region Init
@@ -272,6 +293,10 @@ void ResetActionTrigger() {
 }
 
 void Flicker(long ms, uint8_t count) {
+  Flicker(Colors[DEFAULT_LUMINANCE], ms, count);
+}
+
+void Flicker(const CRGB color, long ms, uint8_t count) {
   //TODO add interrupt
   long start = millis();
   long end = start + ms;
@@ -302,7 +327,11 @@ void FillMatrixRandom(const uint16_t numberLeds) {
   }
 }
 
-void ShowYear(const uint8_t arr[16][4]) {
+void DisplayValue(const uint8_t arr[16][4]) {
+  DisplayValue(Colors[DEFAULT_LUMINANCE], arr);
+}
+
+void DisplayValue(const CRGB color, const uint8_t arr[16][4]) {
   Clear();
   for (int y = 0; y < NEO_MATRIX_HIGHT; y++) {
     uint8_t pos = NEO_MATRIX_WIDTH - 1;
@@ -317,7 +346,7 @@ void ShowYear(const uint8_t arr[16][4]) {
           Serial.print(',');
         }
         else {
-          leds[XY(pos, y, true)] = res > 0 ? Colors[DEFAUL_LUMINANCE] : Colors[Luminance::off];
+          leds[XY(pos, y, true)] = res > 0 ? color : Colors[Luminance::off];
         }
         if (pos == 0) { break; }
         pos--;
@@ -329,6 +358,14 @@ void ShowYear(const uint8_t arr[16][4]) {
     }
   }
   FastLED.show();
+}
+
+void DisplayDisco() {
+  nextAction = false;
+  while (nextAction == false) {
+
+    //DisplayValue(Colors[Luminance::bmax], Disco); //TODO
+  }
 }
 
 #pragma endregion
@@ -360,7 +397,7 @@ void BlinkStatusLedOk(uint32_t ledPin) {
     digitalWrite(ledPin, LOW);
   }
   else {
-    leds[0] = Colors[Luminance::mid];
+    leds[0] = Colors[Luminance::rmid];
     FastLED.show();
     delay(statuslightOnTimeInMs);
     leds[0] = Colors[Luminance::off];
@@ -381,7 +418,7 @@ void errorPin(int ledPin) {
     }
   }
   else {
-    leds[0] = Colors[Luminance::mid];
+    leds[0] = Colors[Luminance::rmid];
     FastLED.show();
     delay(delayInMs);
     leds[0] = Colors[Luminance::off];
