@@ -87,10 +87,9 @@ void setup() {
 }
 
 void loop() {
-
-  uint8_t val = ReadSwitchValue(FUNCTION_SWITCH_DATA_PIN);
   bool resetCycleCounter = false;
   static uint8_t cycleCount;
+  static uint16_t oldSwitchvalue = 1; 
 
   if(millis() >= timeDiff + EXTRA_TIME_BUFFER){
     ResetSwitchTimeBuffer();
@@ -107,8 +106,15 @@ void loop() {
   if (nextAction == true) {
     cycleCount++;
   }
+
+  uint8_t switchValue = ReadSwitchValue();
+
+  if (oldSwitchvalue != switchValue) {
+    cycleCount = 0;
+    oldSwitchvalue = switchValue;
+  }
   
-  switch (val) {
+  switch (switchValue) {
   case 1:
     resetCycleCounter = Run1(cycleCount);
     break;
@@ -186,6 +192,8 @@ bool Run3(const uint8_t cycle) {
   }
   else if (cycle == 4) {
     DisplayDisco(color);
+    Clear();
+    return true;
   }
   else {
     Clear();
@@ -221,11 +229,11 @@ void InitializeSerialPortInDebugMode(const boolean debugMode) {
 }
 
 void InitializeSwitch(){
-/*
+
   pinMode(FUNCTION_SWITCH_LATCH_PIN, OUTPUT);
   pinMode(FUNCTION_SWITCH_CLOCK_PIN, OUTPUT);
   pinMode(FUNCTION_SWITCH_DATA_PIN, INPUT);
-*/
+
   }
 
 #pragma region Interrupts
@@ -279,8 +287,57 @@ void Clear() {
 
 #pragma region Execution
 
-const uint8_t ReadSwitchValue(const uint8_t pin) {
-  return 1; //TODO read switch value
+const uint8_t ReadSwitchValue() {
+
+  uint16_t switchVar1 = 0;
+  ExecuteParallelRead(FUNCTION_SWITCH_LATCH_PIN);
+  switchVar1 = shiftIn(FUNCTION_SWITCH_DATA_PIN, FUNCTION_SWITCH_CLOCK_PIN);
+
+
+  if (switchVar1 == 0) {
+    return 1;
+  }
+
+  uint8_t position = 0;
+  while (position < 13) {
+    if (switchVar1 == 1 << position++) {
+      return position;
+    }
+  }
+  return 1;
+}
+
+uint16_t shiftIn(int myDataPin, int myClockPin) {
+  int i;
+  int temp = 0;
+  int pinState;
+  uint16_t myDataIn = 0;
+
+  pinMode(myClockPin, OUTPUT);
+  pinMode(myDataPin, INPUT);
+  
+  for (i = 15; i >= 0; i--)
+  {
+    digitalWrite(myClockPin, 0);
+    delayMicroseconds(0.2);
+    temp = digitalRead(myDataPin);
+    if (temp) {
+      pinState = 1;
+      //set the bit to 0 no matter what
+      myDataIn = myDataIn | (1 << i);
+    }
+    
+    digitalWrite(myClockPin, 1);
+  }
+  return myDataIn & 0x0FFF;
+}
+
+void ExecuteParallelRead(uint8_t latchPin) {
+  digitalWrite(latchPin, HIGH);
+  //set it to 1 to collect parallel data, wait
+  delayMicroseconds(20);
+  //set it to 0 to transmit data serially  
+  digitalWrite(latchPin, LOW);
 }
 
 void BlinkStatusLedOk() {
@@ -342,7 +399,7 @@ void DisplayValue(const CRGB color, const uint8_t arr[16][4]) {
     {
       for (int i = 0; i < 8; i++) {
         boolean res = arr[y][x] & (0x01 << i);
-        if (isDebugMode) {
+        if (isDebugMode && SerialUSB) {
           SerialUSB.print(pos);
           SerialUSB.print(':');
           SerialUSB.print(res);
@@ -356,7 +413,7 @@ void DisplayValue(const CRGB color, const uint8_t arr[16][4]) {
       }
       if (pos == 0) { break; }
     }
-    if (isDebugMode) {
+    if (isDebugMode && SerialUSB) {
       SerialUSB.println();
     }
   }
@@ -366,7 +423,7 @@ void DisplayValue(const CRGB color, const uint8_t arr[16][4]) {
 void DisplayDisco(const CRGB color) {
   nextAction = false;
   static int counter = 0;
-
+  
   while (nextAction == false) {
     delay(DEFAULT_ENTERDELAY_IN_MS);
     switch (counter)
