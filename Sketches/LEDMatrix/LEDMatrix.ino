@@ -21,8 +21,8 @@
 //Pin Configuration
 const uint8_t BUTTON_EXEC_PIN = 3;
 const uint8_t EVENT_TRIGGER_ACTION = CHANGE;
-const long EXPECTABLE_PUSH_BUFFER_IN_MS = 200;
-const long EXTRA_TIME_BUFFER = 300;
+const unsigned long EXPECTABLE_PUSH_BUFFER_IN_MS = 200;
+const unsigned long EXTRA_TIME_BUFFER = 300;
 
 const uint8_t FUNCTION_SWITCH_DATA_PIN = 9;
 const uint8_t FUNCTION_SWITCH_LATCH_PIN = 8;
@@ -63,11 +63,11 @@ static boolean isDebugMode;
 // Interrupts
 const uint8_t interruptNextPin = BUTTON_EXEC_PIN;
 volatile boolean nextAction = false;
-volatile long timeDiff = 0;
+volatile unsigned long timeDiff = 0;
 
 //Global
-const uint32_t DEFAULT_DELAY_IN_MS = 1000;
-const uint32_t DEFAULT_ENTERDELAY_IN_MS = 250;
+const unsigned long DEFAULT_DELAY_IN_MS = 5500;
+const unsigned long DEFAULT_ENTERDELAY_IN_MS = 250;
 
 void RegisterInterrupt(const uint8_t, void(*)(), const uint8_t);
 
@@ -129,7 +129,6 @@ void loop() {
 bool Run1(const uint8_t cycle) {
   const CRGB *usedColors = ColorsRed;
   const CRGB displayColor = usedColors[DEFAULT_LUMINANCE];
-  //CRGB* usedColors[] = Colors;
   if (cycle == 1) {
     Flicker(usedColors, DEFAULT_DELAY_IN_MS, cycle);
     DisplayValue(displayColor, arr1884);
@@ -281,7 +280,7 @@ void Clear() {
 #pragma region Execution
 
 const uint8_t ReadSwitchValue(const uint8_t pin) {
-  return 3; //TODO read switch value
+  return 1; //TODO read switch value
 }
 
 void BlinkStatusLedOk() {
@@ -305,21 +304,21 @@ void ResetActionTrigger() {
 }
 
 void Flicker(const CRGB usedColors[], long ms, uint8_t count) {
-  //TODO add interrupt
-  long start = millis();
-  long end = start + ms;
+  unsigned long start = millis();
+  unsigned long end = start + ms;
   if (isDebugMode) {
-    if(SerialUSB){
-      SerialUSB.print(F("Show Debug"));
-    }
     showDebugPinAction(LED_PIN, count);
   }
   else {
     nextAction = false;
+    unsigned long tmpTime = 0;
     do {
       FillMatrixRandom(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT, usedColors);
       FastLED.show();
-    } while (millis() < end && nextAction == false);
+      delay(50);
+
+      tmpTime = millis();
+    } while (tmpTime < end && nextAction == false);
     nextAction = true;
   }
 }
