@@ -10,6 +10,7 @@
 //#include <SPI.h>
 //#include <SD.h>   //Problem Memory (uses 512 Byte on runtime) 
 
+#define ARDUINO_SAMD_ZERO
 #include "FastLED.h"
 //#include <avr/pgmspace.h>
 
@@ -18,18 +19,21 @@
 #include "LEDSigns.h"
 
 //Pin Configuration
-const uint8_t BUTTON_EXEC_PIN = 2;
-const uint8_t BUTTON_RESET_PIN = 3;
-const uint8_t EVENT_TRIGGER_ACTION = RISING;
+const uint8_t BUTTON_EXEC_PIN = 3;
+const uint8_t EVENT_TRIGGER_ACTION = CHANGE;
+const long EXPECTABLE_PUSH_BUFFER_IN_MS = 130;
+const long EXTRA_TIME_BUFFER = 100;
 
-const uint8_t FUNCTION_SWITCH_PIN = 4; //TODO whitch pin for Switch
+const uint8_t FUNCTION_SWITCH_DATA_PIN = 9;
+const uint8_t FUNCTION_SWITCH_LATCH_PIN = 8;
+const uint8_t FUNCTION_SWITCH_CLOCK_PIN = 7;
 
 //Debug
-const uint8_t DEBUG_READ_PIN = 7;
+const uint8_t DEBUG_READ_PIN = 5;
 
 //Matrix Dimensions
 const uint8_t DATA_PIN = 6;
-const uint8_t LED_PIN = 13;
+const uint8_t LED_PIN = LED_BUILTIN;
 
 const uint8_t NEO_MATRIX_HIGHT = 16;
 const uint8_t NEO_MATRIX_WIDTH = 28;
@@ -42,7 +46,7 @@ CRGB leds[TOTAL_NUMBER_LEDS];
 const uint8_t MID_COLOR_VAL = 0x7F;
 const uint8_t MAX_COLOR_VAL = 0xFF;
 
-const CRGB Colors[] = { CRGB::Black, CRGB(MID_COLOR_VAL, 0, 0), CRGB(MAX_COLOR_VAL, 0, 0) };
+const CRGB Colors[] = { CRGB::Black, CRGB(MID_COLOR_VAL, 0, 0), CRGB(MAX_COLOR_VAL, 0, 0), (0, MID_COLOR_VAL, 0), (0, MAX_COLOR_VAL, 0), (0, 0, MID_COLOR_VAL), (0, 0, MAX_COLOR_VAL) };
 
 enum Luminance : byte { off = 0, mid, max };
 
@@ -53,24 +57,13 @@ const Luminance DEFAUL_LUMINANCE = Luminance::max;
 //Output
 static boolean isDebugMode;
 
-#pragma region DebugOutputMessages
-/*
-const char debugMsg_DebugModeSet[] PROGMEM = "DebugMode Set";
-const char debugMsg_InitInterruptPin[] PROGMEM = "Initialize Interrupt Pin";
-const char debugMsg_InitSDCardReader[] PROGMEM = "Initialize SD Card Reader";
-const char debugMsg_InitFailed[] PROGMEM = "Initialization failed!";
-const char debugMsg_InitDone[] PROGMEM = "Initialization done.";
-*/
-#pragma endregion
-
 // Interrupts
 const uint8_t interruptNextPin = BUTTON_EXEC_PIN;
 volatile boolean nextAction = false;
-const byte interruptReversePin = BUTTON_RESET_PIN;
-volatile boolean lastAction = false;
+volatile long timeDiff = 0;
 
 //Global
-const uint32_t DEFAULT_DELAY_IN_MS = 5500;
+const uint32_t DEFAULT_DELAY_IN_MS = 1200;
 const uint32_t DEFAULT_ENTERDELAY_IN_MS = 250;
 
 void RegisterInterrupt(const uint8_t, void(*)(), const uint8_t);
@@ -82,31 +75,34 @@ void setup() {
 
   //Interrupts
   RegisterInterrupt(interruptNextPin, executeNextAction, EVENT_TRIGGER_ACTION);
-  RegisterInterrupt(interruptReversePin, executeLastAction, EVENT_TRIGGER_ACTION);
 
+  //Initialize Switch
+  InitializeSwitch();
+  
   //Initialize output to Matrix
   InitializeDataPort(isDebugMode, DATA_PIN, TOTAL_NUMBER_LEDS);
 }
 
 void loop() {
 
-  uint8_t val = ReadSwitchValue(FUNCTION_SWITCH_PIN);
+  uint8_t val = ReadSwitchValue(FUNCTION_SWITCH_DATA_PIN);
   bool resetCycleCounter = false;
   static uint8_t cycleCount;
 
-  if (nextAction == false && lastAction == false) { 
+  if(millis() >= timeDiff + EXTRA_TIME_BUFFER){
+    ResetSwitchTimeBuffer();
+  }
+  
+  if (nextAction == false) { 
     if (cycleCount == 0)
     {
-      ShowStatusOk();
+      BlinkStatusLedOk();
     }
     return;
   }
 
   if (nextAction == true) {
     cycleCount++;
-  }
-  else if (lastAction && cycleCount > 0) {
-    cycleCount--;
   }
   
   switch (val) {
@@ -132,9 +128,6 @@ bool RunFirst(const uint8_t cycle) {
     Flicker(DEFAULT_DELAY_IN_MS, cycle);
     ShowYear(arr1884);
     delay(2000);
-    if (isDebugMode) {
-      okPin(DATA_PIN);
-    }
     ShowYear(arr1984);
   }
   else if (cycle == 2) {
@@ -145,10 +138,7 @@ bool RunFirst(const uint8_t cycle) {
     Flicker(DEFAULT_DELAY_IN_MS, cycle);
     ShowYear(arr2118);
   }
-  else if (cycle == 4) {
-    ShowYear(arr2118); //TODO set Array 2018
-  }
-  else if (cycle > 4) {
+  else if (cycle >= 4) {
     Clear();
     delay(500);
     return true;
@@ -156,8 +146,21 @@ bool RunFirst(const uint8_t cycle) {
   return false;
 }
 
+void ResetSwitchTimeBuffer(){
+  timeDiff = 0;
+}
+
 bool RunSecond(const uint8_t cycle) {
-  return true;
+  if (cycle == 1) {
+    Flicker(DEFAULT_DELAY_IN_MS, cycle);
+    ShowYear(arr2018);
+  }
+  else if (cycle >= 2) {
+    Clear();
+    delay(500);
+    return true;
+  }
+  return false;
 }
 
 bool RunThird(const uint8_t cycle) {
@@ -189,24 +192,31 @@ void InitializeSerialPortInDebugMode(const boolean debugMode) {
   }
 }
 
+void InitializeSwitch(){
+  // TODO Init
+}
+
 #pragma region Interrupts
 
 void RegisterInterrupt(const uint8_t interruptPin, void(*executeAction)(), const uint8_t trigger) {
-  pinMode(interruptPin, INPUT);
+  pinMode(interruptPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(interruptPin), executeAction, trigger);
 }
 void executeNextAction() {
-  if (isDebugMode) {
+  if (isDebugMode && Serial) {
     Serial.print("Trigger Next");
   }
-  nextAction = true;
-}
-
-void executeLastAction() {
-  if (isDebugMode) {
-    Serial.print("Trigger Last");
+  if(0 == timeDiff){
+    timeDiff = millis() + EXPECTABLE_PUSH_BUFFER_IN_MS;
+    return;
   }
-  lastAction = true;
+  else if(timeDiff >= millis()){
+    return;
+  }
+  else{
+    ResetSwitchTimeBuffer();
+  }
+  nextAction = true;
 }
 
 #pragma endregion
@@ -217,7 +227,9 @@ void InitializeDataPort(const boolean isDebugMode, const uint8_t outputPin, cons
   //For Debug Purpose Only
   if (isDebugMode) {
     pinMode(outputPin, OUTPUT);
-    Serial.print(" Init Debug");
+    if(Serial) {
+      Serial.print(" Init Debug");
+    }
   }
   else {
     //it is not possible to use parameter as inputPin
@@ -239,34 +251,43 @@ const uint8_t ReadSwitchValue(const uint8_t pin) {
   return 1; //TODO read switch value
 }
 
-void ShowStatusOk() {
-  okPin(DATA_PIN);
+void BlinkStatusLedOk() {
+  if(isDebugMode){
+    BlinkStatusLedOk(LED_PIN);
+  }
+  else{
+    BlinkStatusLedOk(DATA_PIN);
+  }
   for (int i = 0; i < 20; i++) {
     delay(DEFAULT_ENTERDELAY_IN_MS);
-    if (nextAction == true || lastAction == true) { return; }
+    if (nextAction == true) { return; }
   }
 }
 
 void ResetActionTrigger() {
-  if (isDebugMode) {
+  if (isDebugMode && Serial) {
     Serial.println("Reset");
   }
-  nextAction = lastAction = false;
+  nextAction = false;
 }
 
-void Flicker(uint32_t ms, uint8_t count) {
+void Flicker(long ms, uint8_t count) {
   //TODO add interrupt
-  uint32_t start = millis();
-  uint32_t end = start + ms;
+  long start = millis();
+  long end = start + ms;
   if (isDebugMode) {
-    Serial.print(" Show Debug");
-    showDebugPinAction(DATA_PIN, count);
+    if(Serial){
+      Serial.print(F("Show Debug"));
+    }
+    showDebugPinAction(LED_PIN, count);
   }
   else {
+    nextAction = false;
     do {
       FillMatrixRandom(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT);
       FastLED.show();
-    } while (millis() < end);
+    } while (millis() < end && nextAction == false);
+    nextAction = true;
   }
 }
 
@@ -314,30 +335,6 @@ void ShowYear(const uint8_t arr[16][4]) {
 
 #pragma region DebugMethods
 
-void printDebugMessages(const char* msg) {
-  printDebugMessages(isDebugMode, msg, NULL);
-}
-
-void printDebugMessages(const boolean debugMode, const char* msg) {
-  printDebugMessages(debugMode, msg, NULL);
-}
-
-void printDebugMessages(const char* msg, const char* appendix) {
-  printDebugMessages(isDebugMode, msg, appendix);
-}
-
-void printDebugMessages(const boolean debugMode, const char* msg, const char* appendix) {
-  return;
-  if (!debugMode) { return; }
-  char buffer[30];
-  strcpy_P(buffer, (char*)pgm_read_word(msg));
-  if (appendix != NULL) {
-    strcat(buffer, " ");
-    strcat(buffer, appendix);
-  }
-  Serial.println(buffer);
-}
-
 void Pause() {
   while (1) {}
 }
@@ -354,7 +351,7 @@ void showDebugPinAction(int ledPin, uint8_t count) {
   }
 }
 
-void okPin(int ledPin) {
+void BlinkStatusLedOk(uint32_t ledPin) {
   static uint32_t statuslightOnTimeInMs = 100;
   if (isDebugMode) {
     pinMode(ledPin, OUTPUT);
