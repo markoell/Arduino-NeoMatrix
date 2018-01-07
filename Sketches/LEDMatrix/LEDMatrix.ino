@@ -21,8 +21,8 @@
 //Pin Configuration
 const uint8_t BUTTON_EXEC_PIN = 3;
 const uint8_t EVENT_TRIGGER_ACTION = CHANGE;
-const long EXPECTABLE_PUSH_BUFFER_IN_MS = 130;
-const long EXTRA_TIME_BUFFER = 100;
+const long EXPECTABLE_PUSH_BUFFER_IN_MS = 200;
+const long EXTRA_TIME_BUFFER = 300;
 
 const uint8_t FUNCTION_SWITCH_DATA_PIN = 9;
 const uint8_t FUNCTION_SWITCH_LATCH_PIN = 8;
@@ -46,11 +46,14 @@ CRGB leds[TOTAL_NUMBER_LEDS];
 const uint8_t MID_COLOR_VAL = 0x7F;
 const uint8_t MAX_COLOR_VAL = 0xFF;
 
-const CRGB Colors[] = { CRGB::Black, CRGB(MID_COLOR_VAL, 0, 0), CRGB(MAX_COLOR_VAL, 0, 0), (0, MID_COLOR_VAL, 0), (0, MAX_COLOR_VAL, 0), (0, 0, MID_COLOR_VAL), (0, 0, MAX_COLOR_VAL), (MAX_COLOR_VAL, MAX_COLOR_VAL, MAX_COLOR_VAL) };
+const CRGB ColorsRed[] = { CRGB::Black, CRGB(MID_COLOR_VAL, 0, 0), CRGB::Red };
+const CRGB ColorsGreen[] = { CRGB::Black, (0, MID_COLOR_VAL, 0), CRGB::Green };
+const CRGB ColorsBlue[] = { CRGB::Black, (0, 0, MID_COLOR_VAL), CRGB::Blue };
+const CRGB ColorsWhite[] = { CRGB::Black, (MID_COLOR_VAL, MID_COLOR_VAL, MID_COLOR_VAL), CRGB::White };
 
-enum Luminance : byte { off = 0, rmid, rmax, gmid, gmax, bmid, bmax, white };
+enum Luminance : byte { off = 0, mid, max };
 
-const Luminance DEFAULT_LUMINANCE = Luminance::rmax;
+const Luminance DEFAULT_LUMINANCE = Luminance::max;
 
 #pragma endregion
 
@@ -63,7 +66,7 @@ volatile boolean nextAction = false;
 volatile long timeDiff = 0;
 
 //Global
-const uint32_t DEFAULT_DELAY_IN_MS = 1200;
+const uint32_t DEFAULT_DELAY_IN_MS = 1000;
 const uint32_t DEFAULT_ENTERDELAY_IN_MS = 250;
 
 void RegisterInterrupt(const uint8_t, void(*)(), const uint8_t);
@@ -124,19 +127,22 @@ void loop() {
 }
 
 bool Run1(const uint8_t cycle) {
+  const CRGB *usedColors = ColorsRed;
+  const CRGB displayColor = usedColors[DEFAULT_LUMINANCE];
+  //CRGB* usedColors[] = Colors;
   if (cycle == 1) {
-    Flicker(DEFAULT_DELAY_IN_MS, cycle);
-    DisplayValue(arr1884);
+    Flicker(usedColors, DEFAULT_DELAY_IN_MS, cycle);
+    DisplayValue(displayColor, arr1884);
     delay(2000);
-    DisplayValue(arr1984);
+    DisplayValue(displayColor, arr1984);
   }
   else if (cycle == 2) {
-    Flicker(DEFAULT_DELAY_IN_MS, cycle);
-    DisplayValue(arr1884);
+    Flicker(usedColors, DEFAULT_DELAY_IN_MS, cycle);
+    DisplayValue(displayColor, arr1884);
   }
   else if (cycle == 3) {
-    Flicker(DEFAULT_DELAY_IN_MS, cycle);
-    DisplayValue(arr2118);
+    Flicker(usedColors, DEFAULT_DELAY_IN_MS, cycle);
+    DisplayValue(displayColor, arr2118);
   }
   else {
     Clear();
@@ -151,13 +157,14 @@ void ResetSwitchTimeBuffer(){
 }
 
 bool Run2(const uint8_t cycle) {
+  const CRGB *usedColors = ColorsBlue;
   if (cycle == 1) {
-    Flicker(Colors[Luminance::bmax], DEFAULT_DELAY_IN_MS, cycle);
-    DisplayValue(Colors[Luminance::bmax], arr2018);
+    Flicker(usedColors, DEFAULT_DELAY_IN_MS, cycle);
+    DisplayValue(usedColors[Luminance::max], arr2018);
   }
   else if (cycle == 2) {
-    Flicker(Colors[Luminance::bmax], DEFAULT_DELAY_IN_MS, cycle);
-    DisplayValue(Colors[Luminance::bmax], arr1965);
+    Flicker(usedColors, DEFAULT_DELAY_IN_MS, cycle);
+    DisplayValue(usedColors[Luminance::max], arr1965);
   }
   else {
     Clear();
@@ -168,17 +175,18 @@ bool Run2(const uint8_t cycle) {
 }
 
 bool Run3(const uint8_t cycle) {
+  CRGB color = ColorsWhite[DEFAULT_LUMINANCE];
   if (cycle == 1) {
-    //DisplayValue(Colors[Luminance::bmax], arr60);
+    DisplayValue(color, arr60er);
   }
   else if (cycle == 2) {
-    //DisplayValue(Colors[Luminance::bmax], arr70);
+    DisplayValue(color, arr70er);
   }
   else if (cycle == 3) {
-    //DisplayValue(Colors[Luminance::bmax], arr80);
+    DisplayValue(color, arr80er);
   }
-  else if (cycle == 3) {
-    DisplayDisco();
+  else if (cycle == 4) {
+    DisplayDisco(color);
   }
   else {
     Clear();
@@ -205,17 +213,21 @@ boolean ScanDebugState(const uint8_t inputPin) {
 
 void InitializeSerialPortInDebugMode(const boolean debugMode) {
   if (debugMode) {
-    Serial.begin(9600); // opens serial port, sets data rate to 9600 bps
-    while (!Serial) {
+    SerialUSB.begin(9600); // opens serial port, sets data rate to 9600 bps
+    while (!SerialUSB) {
       ; // wait for serial port to connect. Needed for native USB port only
     }
-    Serial.println(F("Serial Print on"));
+    SerialUSB.println(F("Serial Print on"));
   }
 }
 
 void InitializeSwitch(){
-  // TODO Init
-}
+/*
+  pinMode(FUNCTION_SWITCH_LATCH_PIN, OUTPUT);
+  pinMode(FUNCTION_SWITCH_CLOCK_PIN, OUTPUT);
+  pinMode(FUNCTION_SWITCH_DATA_PIN, INPUT);
+*/
+  }
 
 #pragma region Interrupts
 
@@ -224,8 +236,8 @@ void RegisterInterrupt(const uint8_t interruptPin, void(*executeAction)(), const
   attachInterrupt(digitalPinToInterrupt(interruptPin), executeAction, trigger);
 }
 void executeNextAction() {
-  if (isDebugMode && Serial) {
-    Serial.print("Trigger Next");
+  if (isDebugMode && SerialUSB) {
+    SerialUSB.print("Trigger Next");
   }
   if(0 == timeDiff){
     timeDiff = millis() + EXPECTABLE_PUSH_BUFFER_IN_MS;
@@ -248,8 +260,8 @@ void InitializeDataPort(const boolean isDebugMode, const uint8_t outputPin, cons
   //For Debug Purpose Only
   if (isDebugMode) {
     pinMode(outputPin, OUTPUT);
-    if(Serial) {
-      Serial.print(" Init Debug");
+    if(SerialUSB) {
+      SerialUSB.print(" Init Debug");
     }
   }
   else {
@@ -269,7 +281,7 @@ void Clear() {
 #pragma region Execution
 
 const uint8_t ReadSwitchValue(const uint8_t pin) {
-  return 1; //TODO read switch value
+  return 3; //TODO read switch value
 }
 
 void BlinkStatusLedOk() {
@@ -286,49 +298,41 @@ void BlinkStatusLedOk() {
 }
 
 void ResetActionTrigger() {
-  if (isDebugMode && Serial) {
-    Serial.println("Reset");
+  if (isDebugMode && SerialUSB) {
+    SerialUSB.println("Reset");
   }
   nextAction = false;
 }
 
-void Flicker(long ms, uint8_t count) {
-  Flicker(Colors[DEFAULT_LUMINANCE], ms, count);
-}
-
-void Flicker(const CRGB color, long ms, uint8_t count) {
+void Flicker(const CRGB usedColors[], long ms, uint8_t count) {
   //TODO add interrupt
   long start = millis();
   long end = start + ms;
   if (isDebugMode) {
-    if(Serial){
-      Serial.print(F("Show Debug"));
+    if(SerialUSB){
+      SerialUSB.print(F("Show Debug"));
     }
     showDebugPinAction(LED_PIN, count);
   }
   else {
     nextAction = false;
     do {
-      FillMatrixRandom(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT);
+      FillMatrixRandom(NEO_MATRIX_WIDTH, NEO_MATRIX_HIGHT, usedColors);
       FastLED.show();
     } while (millis() < end && nextAction == false);
     nextAction = true;
   }
 }
 
-void FillMatrixRandom(const uint8_t sizeX, const uint8_t sizeY) {
+void FillMatrixRandom(const uint8_t sizeX, const uint8_t sizeY, const CRGB usedColors[]) {
   uint16_t numberLeds = sizeX * sizeY;
-  FillMatrixRandom(numberLeds);
+  FillMatrixRandom(numberLeds, usedColors);
 }
 
-void FillMatrixRandom(const uint16_t numberLeds) {
+void FillMatrixRandom(const uint16_t numberLeds, const CRGB usedColors[]) {
   for (int i = 0; i < numberLeds; i++) {
-    leds[i] = Colors[rand() % (sizeof(Colors) / sizeof(CRGB))];
+    leds[i] = usedColors[rand() % (int) DEFAULT_LUMINANCE];
   }
-}
-
-void DisplayValue(const uint8_t arr[16][4]) {
-  DisplayValue(Colors[DEFAULT_LUMINANCE], arr);
 }
 
 void DisplayValue(const CRGB color, const uint8_t arr[16][4]) {
@@ -340,13 +344,13 @@ void DisplayValue(const CRGB color, const uint8_t arr[16][4]) {
       for (int i = 0; i < 8; i++) {
         boolean res = arr[y][x] & (0x01 << i);
         if (isDebugMode) {
-          Serial.print(pos);
-          Serial.print(':');
-          Serial.print(res);
-          Serial.print(',');
+          SerialUSB.print(pos);
+          SerialUSB.print(':');
+          SerialUSB.print(res);
+          SerialUSB.print(',');
         }
         else {
-          leds[XY(pos, y, true)] = res > 0 ? color : Colors[Luminance::off];
+          leds[XY(pos, y, true)] = res > 0 ? color : ColorsWhite[Luminance::off];
         }
         if (pos == 0) { break; }
         pos--;
@@ -354,17 +358,70 @@ void DisplayValue(const CRGB color, const uint8_t arr[16][4]) {
       if (pos == 0) { break; }
     }
     if (isDebugMode) {
-      Serial.println();
+      SerialUSB.println();
     }
   }
   FastLED.show();
 }
 
-void DisplayDisco() {
+void DisplayDisco(const CRGB color) {
   nextAction = false;
-  while (nextAction == false) {
+  static int counter = 0;
 
-    //DisplayValue(Colors[Luminance::bmax], Disco); //TODO
+  while (nextAction == false) {
+    delay(DEFAULT_ENTERDELAY_IN_MS);
+    switch (counter)
+    {
+    case 1:
+      DisplayValue(color, arrDisco1); //TODO
+      break;
+    case 2:
+      DisplayValue(color, arrDisco2); //TODO
+      break;
+    case 3:
+      DisplayValue(color, arrDisco3); //TODO
+      break;
+    case 4:
+      DisplayValue(color, arrDisco4); //TODO
+      break;
+    case 5:
+      DisplayValue(color, arrDisco5); //TODO
+      break;
+    case 6:
+      DisplayValue(color, arrDisco6); //TODO
+      break;
+    case 7:
+      DisplayValue(color, arrDisco7); //TODO
+      break;
+    case 8:
+      DisplayValue(color, arrDisco8); //TODO
+      break;
+    case 9:
+      DisplayValue(color, arrDisco9); //TODO
+      break;
+    case 10:
+      DisplayValue(color, arrDisco10); //TODO
+      break;
+    case 11:
+      DisplayValue(color, arrDisco11); //TODO
+      break;
+    case 12:
+      DisplayValue(color, arrDisco12); //TODO
+      break;
+    case 13:
+      DisplayValue(color, arrDisco13); //TODO
+      break;
+    case 14:
+      DisplayValue(color, arrDisco14); //TODO
+      break;
+    case 15:
+      DisplayValue(color, arrDisco15); //TODO
+      counter = 6;
+      continue;
+    default:
+      break;
+    }
+    counter++;
   }
 }
 
@@ -397,10 +454,10 @@ void BlinkStatusLedOk(uint32_t ledPin) {
     digitalWrite(ledPin, LOW);
   }
   else {
-    leds[0] = Colors[Luminance::rmid];
+    leds[0] = ColorsRed[Luminance::mid];
     FastLED.show();
     delay(statuslightOnTimeInMs);
-    leds[0] = Colors[Luminance::off];
+    leds[0] = ColorsRed[Luminance::off];
     FastLED.show();
   }
 }
@@ -418,10 +475,10 @@ void errorPin(int ledPin) {
     }
   }
   else {
-    leds[0] = Colors[Luminance::rmid];
+    leds[0] = ColorsRed[Luminance::mid];
     FastLED.show();
     delay(delayInMs);
-    leds[0] = Colors[Luminance::off];
+    leds[0] = ColorsRed[Luminance::off];
     FastLED.show();
     delay(delayInMs);
   }
