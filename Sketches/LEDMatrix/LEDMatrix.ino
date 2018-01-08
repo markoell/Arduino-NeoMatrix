@@ -124,6 +124,9 @@ void loop() {
   case 3:
     resetCycleCounter = Run3(cycleCount);
     break;
+  default:
+    resetCycleCounter = true;
+    break;
   }
   if (resetCycleCounter) {
     cycleCount = 0;
@@ -421,11 +424,79 @@ void DisplayValue(const CRGB color, const uint8_t arr[16][4]) {
 }
 
 void DisplayDisco(const CRGB color) {
+  const int stepSize = 2;
+
+  Clear();
+
   nextAction = false;
   static int counter = 0;
-  
+  /*
+  boolean disco[36][NEO_MATRIX_HIGHT];
+  SerialUSB.println("Disko1");
+  for (int y = 0; y < NEO_MATRIX_HIGHT; y++) {
+    uint8_t pos = 35;
+    for (int x = 4; x >= 0; x--) {
+      for (int i = 0; i < 8; i++) {
+        disco[pos][y] = arrDisco[x][y] & (0x01 << i);
+        if (pos == 0) { break; }
+        pos--;
+      }
+      if (pos == 0) { break; }
+    }
+  }
+  if(SerialUSB) SerialUSB.println("Disko2");
+
+  uint8_t count = 1;
+  */
   while (nextAction == false) {
     delay(DEFAULT_ENTERDELAY_IN_MS);
+    //SerialUSB.println("Disko3");
+
+    //int discoX = 0;
+    //if (count % stepSize == 0) {
+    //  SerialUSB.println("Disko4");
+
+    //  int tmpX = discoX;
+    //  for (int x = 0; x < NEO_MATRIX_WIDTH; x++) {
+    //    for (int y = 0; y < NEO_MATRIX_HIGHT; y++) {
+    //      SerialUSB.print("Disko5: ");
+    //      SerialUSB.print(x);
+    //      SerialUSB.print("; ");
+    //      SerialUSB.print(y);
+    //      SerialUSB.print("; ");
+    //      SerialUSB.print(tmpX);
+    //      SerialUSB.print("; ");
+
+    //      if (x < NEO_MATRIX_WIDTH - stepSize) {
+    //        SerialUSB.print("Disko6: ");
+    //        leds[XY(x, y, true)] = leds[XY(x + stepSize, y, true)];
+    //      }
+    //      else {
+    //        SerialUSB.print("Disko7: ");
+    //        if (tmpX < 36) {
+    //          SerialUSB.print("Disko8: ");
+    //          leds[XY(x, y, true)] = disco[tmpX][y] ? color : ColorsWhite[Luminance::off];
+    //        }
+    //        else if (tmpX < 40) {
+    //          SerialUSB.print("Disko9: ");
+    //          leds[XY(x, y, true)] = ColorsWhite[Luminance::off];
+    //        }
+    //        else {
+    //          SerialUSB.print("Disko10: ");
+    //          discoX = 0;
+    //        }
+    //        tmpX++;
+    //      }
+    //      SerialUSB.print("Disko11: ");
+    //      SerialUSB.println(leds[XY(x, y, true)]);
+    //    }
+    //  }
+    //  FastLED.show();
+    //}
+    //
+    //
+    //count++;
+    
     switch (counter)
     {
     case 1:
