@@ -32,8 +32,9 @@ const uint8_t DEBUG_READ_PIN = 5;
 static boolean isDebugMode;
 
 //Time Configuration
-const unsigned long EXPECTABLE_PUSH_BUFFER_IN_MS = 200;
-const unsigned long EXTRA_TIME_BUFFER = 300;
+const unsigned long EXPECTABLE_PUSH_BUTTON_BUFFER_IN_MS = 100;
+const unsigned long PUSH_BUTTON_RESET_TIME_BUFFER = 900;
+
 const unsigned long DEFAULT_DELAY_IN_MS = 5500;
 const unsigned long DEFAULT_ENTERDELAY_IN_MS = 250;
 
@@ -56,6 +57,9 @@ const CRGB ColorsGreen[] = { CRGB::Black, (0, MID_COLOR_VAL, 0), CRGB::Green };
 const CRGB ColorsBlue[] = { CRGB::Black, (0, 0, MID_COLOR_VAL), CRGB::Blue };
 const CRGB ColorsWhite[] = { CRGB::Black, (MID_COLOR_VAL, MID_COLOR_VAL, MID_COLOR_VAL), CRGB::White };
 
+const uint8_t MAX_BRIGHTNESS = 255;
+const uint8_t REDUCED_BRIGHTNESS = 170;
+
 enum Luminance : byte { off = 0, mid, max };
 
 const Luminance DEFAULT_LUMINANCE = Luminance::max;
@@ -74,7 +78,7 @@ void setup() {
   InitializeSerialPortInDebugMode(isDebugMode);
 
   //Interrupts
-  RegisterInterrupt(interruptNextPin, executeNextAction, EVENT_TRIGGER_ACTION);
+  RegisterInterrupt(interruptNextPin, ExecuteNextAction, EVENT_TRIGGER_ACTION);
 
   //Initialize Switch
   InitializeRotarySwitch();
@@ -88,7 +92,7 @@ void loop() {
   static uint8_t cycleCount;
   static uint16_t oldSwitchvalue = 0; 
 
-  if(millis() >= timeDiff + EXTRA_TIME_BUFFER){
+  if(timeDiff != 0 && millis() >= timeDiff + PUSH_BUTTON_RESET_TIME_BUFFER){
     ResetSwitchTimeBuffer();
   }
   
@@ -110,16 +114,21 @@ void loop() {
       cycleCount = 0;
     }
     oldSwitchvalue = currentSwitchValue;
+    
+    FastLED.setBrightness(GetBrightnessOnSwitchValue(currentSwitchValue));
   }
 
   switch (currentSwitchValue) {
   case 1:
+  case 4:
     resetCycleCounter = Run1(cycleCount);
     break;
   case 2:
+  case 5:
     resetCycleCounter = Run2(cycleCount);
     break;
   case 3:
+  case 6:
     resetCycleCounter = Run3(cycleCount);
     break;
   default:
@@ -128,10 +137,10 @@ void loop() {
   }
   if (resetCycleCounter) {
     Clear();
-    delay(500);
     cycleCount = 0;
     oldSwitchvalue = 0;
   }
+  delay(500);
   ResetActionTrigger();
   return;
 }
@@ -201,8 +210,9 @@ bool Run3(const uint8_t cycle) {
 void DisplayDisco(const CRGB color) {
   nextAction = false;
   static int counter = 0;
+  unsigned long threshold = millis() + PUSH_BUTTON_RESET_TIME_BUFFER;
 
-  while (nextAction == false) {
+  while (millis() < threshold || nextAction == false) {
     delay(DEFAULT_ENTERDELAY_IN_MS);
     switch (counter)
     {
@@ -298,9 +308,9 @@ void RegisterInterrupt(const uint8_t interruptPin, void(*executeAction)(), const
   pinMode(interruptPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(interruptPin), executeAction, trigger);
 }
-void executeNextAction() {
+void ExecuteNextAction() {
   if(0 == timeDiff){
-    timeDiff = millis() + EXPECTABLE_PUSH_BUFFER_IN_MS;
+    timeDiff = millis() + EXPECTABLE_PUSH_BUTTON_BUFFER_IN_MS;
     return;
   }
   else if(timeDiff >= millis()){
@@ -393,6 +403,20 @@ void ExecuteParallelRead(uint8_t latchPin) {
 
 #pragma region Helper
 
+uint8_t GetBrightnessOnSwitchValue(uint8_t value) {
+  switch (value)
+  {
+  case 2:
+  case 5:
+  case 3:
+  case 6:
+    return REDUCED_BRIGHTNESS;
+  default:
+    return MAX_BRIGHTNESS;
+    break;
+  }
+}
+
 void Clear() {
   FastLED.clear();
   FastLED.show();
@@ -454,7 +478,7 @@ void Flicker(const CRGB usedColors[], long ms, uint8_t count) {
       delay(50);
 
       tmpTime = millis();
-    } while (tmpTime < end && nextAction == false);
+    } while (tmpTime < end && ( tmpTime < start + PUSH_BUTTON_RESET_TIME_BUFFER || nextAction == false));
     nextAction = true;
   }
 }
